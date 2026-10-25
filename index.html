@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2f6b4f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Grocery">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>Grocery Tracker</title>
+</head>
+<body>
+  <main id="loading-view" class="view center">
+    <img src="icons/icon-192.png" alt="" class="logo">
+    <p id="loading-msg" class="msg" role="status">Caricamento…</p>
+  </main>
+
+  <!-- No accounts: each phone signs in anonymously and joins a household with its invite code -->
+  <main id="join-view" class="view center" hidden>
+    <img src="icons/icon-192.png" alt="" class="logo">
+    <h1>Grocery Tracker</h1>
+    <form id="join-form" class="stack">
+      <h2>Entra in un gruppo</h2>
+      <label>Codice invito
+        <input name="code" autocomplete="off" autocapitalize="none" spellcheck="false" required minlength="6">
+      </label>
+      <button type="submit">Entra</button>
+    </form>
+    <p class="muted">oppure</p>
+    <form id="create-form" class="stack">
+      <h2>Crea un nuovo gruppo</h2>
+      <label>Nome del gruppo
+        <input name="name" maxlength="40" placeholder="es. Casa" autocomplete="off">
+      </label>
+      <label>Codice invito (scegli tu, almeno 6 caratteri)
+        <span class="row">
+          <input name="code" autocomplete="off" autocapitalize="none" spellcheck="false" required minlength="6" maxlength="40">
+          <button type="button" id="generate-code" class="secondary">Genera</button>
+        </span>
+      </label>
+      <button type="submit">Crea gruppo</button>
+    </form>
+    <button type="button" id="join-back" class="link" hidden>Torna alla lista</button>
+    <p id="join-msg" class="msg" role="status"></p>
+  </main>
+
+  <main id="app-view" class="view" hidden>
+    <header class="topbar">
+      <h1 id="app-title">Grocery Tracker</h1>
+      <button type="button" id="settings-btn" class="icon-btn" aria-label="Impostazioni">⚙︎</button>
+    </header>
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="Cerca prodotto…" autocomplete="off">
+      <div id="filters" class="chips"></div>
+    </div>
+    <p id="summary" class="summary"></p>
+    <ul id="list" class="list"></ul>
+    <p id="empty" class="empty" hidden>Nessun prodotto.</p>
+    <button type="button" id="add-btn" class="fab" aria-label="Aggiungi prodotto">+</button>
+  </main>
+
+  <dialog id="product-dialog">
+    <form id="product-form" class="stack">
+      <h2 id="product-title">Nuovo prodotto</h2>
+      <label>Nome
+        <input name="name" required maxlength="80" autocomplete="off">
+      </label>
+      <label>Dove
+        <select name="location"></select>
+      </label>
+      <label>Quantità
+        <input name="quantity" maxlength="40" placeholder="es. 2 conf" autocomplete="off">
+      </label>
+      <label>Scadenza
+        <input name="expires_on" type="date">
+      </label>
+      <label>Nota
+        <input name="note" maxlength="80" placeholder="es. il prima possibile" autocomplete="off">
+      </label>
+      <div class="actions">
+        <button type="button" id="delete-btn" class="danger" hidden>Elimina</button>
+        <span class="spacer"></span>
+        <button type="button" id="cancel-btn" class="secondary">Annulla</button>
+        <button type="submit" id="save-btn">Salva</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settings-dialog">
+    <div class="stack">
+      <h2>Impostazioni</h2>
+      <h3>Gruppo</h3>
+      <label id="household-switch" hidden>Gruppo attivo
+        <select id="household-select"></select>
+      </label>
+      <p><b id="household-name"></b><br>
+        <span class="muted">Codice invito:</span> <code id="household-code"></code></p>
+      <div class="actions">
+        <button type="button" id="share-code" class="secondary">Condividi codice</button>
+        <button type="button" id="other-household" class="secondary">Altro gruppo</button>
+      </div>
+      <h3>Notifiche</h3>
+      <p id="push-status"></p>
+      <button type="button" id="push-btn" hidden>Attiva notifiche</button>
+      <div class="actions">
+        <button type="button" id="leave-btn" class="danger">Esci dal gruppo</button>
+        <span class="spacer"></span>
+        <button type="button" id="settings-close">Chiudi</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
