@@ -1,6 +1,6 @@
 "use strict";
 
-const { SUPABASE_URL, SUPABASE_ANON_KEY, VAPID_PUBLIC_KEY } = window.APP_CONFIG;
+const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.APP_CONFIG;
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CURRENT_HOUSEHOLD_KEY = "grocery.currentHousehold";
@@ -19,6 +19,241 @@ const state = {
   editingId: null,
   channel: null,
 };
+
+// ---------- language (Italiano / English) ----------
+
+const LANGUAGE_KEY = "grocery.language";
+
+// Every UI text. Functions take the variable parts (names, counts, dates).
+const STRINGS = {
+  it: {
+    loading: "Caricamento…",
+    joinTitle: "Entra in un gruppo",
+    inviteCode: "Codice invito",
+    join: "Entra",
+    or: "oppure",
+    createTitle: "Crea un nuovo gruppo",
+    groupName: "Nome del gruppo",
+    groupNamePh: "es. Casa",
+    defaultGroupName: "Casa",
+    inviteCodePick: "Codice invito (scegli tu, almeno 6 caratteri)",
+    generate: "Genera",
+    createGroup: "Crea gruppo",
+    backToList: "Torna alla lista",
+    settings: "Impostazioni",
+    searchPh: "Cerca prodotto…",
+    noProducts: "Nessun prodotto.",
+    addProduct: "Aggiungi prodotto",
+    name: "Nome",
+    category: "Categoria",
+    categoryPh: "es. Frigo",
+    newCategoryName: "Nome nuova categoria",
+    add: "Aggiungi",
+    quantity: "Quantità",
+    quantityPh: "es. 2 conf",
+    expiry: "Scadenza",
+    extendLabel: `+5 mesi alla scadenza`,
+    note: "Nota",
+    notePh: "es. il prima possibile",
+    delete: "Elimina",
+    cancel: "Annulla",
+    save: "Salva",
+    group: "Gruppo",
+    activeGroup: "Gruppo attivo",
+    inviteCodeColon: "Codice invito:",
+    shareCode: "Condividi codice",
+    otherGroup: "Altro gruppo",
+    categories: "Categorie",
+    manageCategories: "Gestisci categorie",
+    language: "Lingua",
+    leaveGroup: "Esci dal gruppo",
+    close: "Chiudi",
+    categoriesIntro: "Crea i posti dove tieni i prodotti, es. Frigo, Freezer, Dispensa.",
+    noCategories: "Nessuna categoria.",
+    newCategory: "Nuova categoria",
+
+    relExpiredDays: (n) => `scaduto da ${n} giorni`,
+    relYesterday: "scaduto ieri",
+    relToday: "scade oggi",
+    relTomorrow: "scade domani",
+    relInDays: (n) => `tra ${n} giorni`,
+    extendAria: (name) => `${name}: +5 mesi alla scadenza`,
+    extendNeedsDate: "Imposta una scadenza per usare +5 mesi",
+    newExpiry: (date) => `Nuova scadenza: ${date}`,
+    duplicate: "Duplica",
+    all: "Tutti",
+    noCategory: "Senza categoria",
+    addCategoryChip: "+ Categoria",
+    summaryExpired: (n) => `${n} scadut${n === 1 ? "o" : "i"}`,
+    summarySoon: (n) => `${n} entro 7 giorni`,
+    summaryWarn: (n) => `${n} entro 14 giorni`,
+    error: (msg) => `Errore: ${msg}`,
+    loadError: (msg) => `Errore nel caricamento: ${msg}`,
+    saveError: (msg) => `Errore nel salvataggio: ${msg}`,
+    deleteError: (msg) => `Errore nell'eliminazione: ${msg}`,
+    restoreError: (msg) => `Errore nel ripristino: ${msg}`,
+    titleNew: "Nuovo prodotto",
+    titleEdit: "Modifica prodotto",
+    titleDuplicate: "Duplica prodotto",
+    confirmDelete: (name) => `Eliminare "${name}"?`,
+    deleted: (name) => `"${name}" eliminato`,
+    undo: "Annulla",
+    categoryExists: "Esiste già una categoria con questo nome.",
+    confirmDeleteCategory: (name, used) => `Eliminare la categoria "${name}"?`
+      + (used ? `\n${used} prodott${used === 1 ? "o resterà" : "i resteranno"} senza categoria.` : ""),
+    categoryNameAria: (name) => `Nome categoria ${name}`,
+    deleteCategoryAria: (name, n) => `Elimina ${name} (${n} prodotti)`,
+    noCategoryOption: "Nessuna categoria",
+    newCategoryOption: "+ Nuova categoria…",
+    joining: "Accesso al gruppo…",
+    creating: "Creazione del gruppo…",
+    shareText: (name, code) => `Entra nel gruppo "${name}" su Grocery Tracker con il codice: ${code}`,
+    codeCopied: "Codice copiato",
+    confirmLeave: (name) => `Uscire dal gruppo "${name}"? Potrai rientrare con il codice invito.`,
+    groupRenamed: "Nome del gruppo aggiornato",
+    configMissing: "Configura SUPABASE_URL e SUPABASE_ANON_KEY in config.js (vedi README).",
+    connectionError: (msg) => `Errore di connessione: ${msg}`,
+  },
+  en: {
+    loading: "Loading…",
+    joinTitle: "Join a group",
+    inviteCode: "Invite code",
+    join: "Join",
+    or: "or",
+    createTitle: "Create a new group",
+    groupName: "Group name",
+    groupNamePh: "e.g. Home",
+    defaultGroupName: "Home",
+    inviteCodePick: "Invite code (your choice, at least 6 characters)",
+    generate: "Generate",
+    createGroup: "Create group",
+    backToList: "Back to the list",
+    settings: "Settings",
+    searchPh: "Search product…",
+    noProducts: "No products.",
+    addProduct: "Add product",
+    name: "Name",
+    category: "Category",
+    categoryPh: "e.g. Fridge",
+    newCategoryName: "New category name",
+    add: "Add",
+    quantity: "Quantity",
+    quantityPh: "e.g. 2 packs",
+    expiry: "Expiry date",
+    extendLabel: "+5 months to the expiry date",
+    note: "Note",
+    notePh: "e.g. use soon",
+    delete: "Delete",
+    cancel: "Cancel",
+    save: "Save",
+    group: "Group",
+    activeGroup: "Active group",
+    inviteCodeColon: "Invite code:",
+    shareCode: "Share code",
+    otherGroup: "Other group",
+    categories: "Categories",
+    manageCategories: "Manage categories",
+    language: "Language",
+    leaveGroup: "Leave group",
+    close: "Close",
+    categoriesIntro: "Create the places where you keep your products, e.g. Fridge, Freezer, Pantry.",
+    noCategories: "No categories.",
+    newCategory: "New category",
+
+    relExpiredDays: (n) => `expired ${n} days ago`,
+    relYesterday: "expired yesterday",
+    relToday: "expires today",
+    relTomorrow: "expires tomorrow",
+    relInDays: (n) => `in ${n} days`,
+    extendAria: (name) => `${name}: +5 months to the expiry date`,
+    extendNeedsDate: "Set an expiry date to use +5 months",
+    newExpiry: (date) => `New expiry date: ${date}`,
+    duplicate: "Duplicate",
+    all: "All",
+    noCategory: "No category",
+    addCategoryChip: "+ Category",
+    summaryExpired: (n) => `${n} expired`,
+    summarySoon: (n) => `${n} within 7 days`,
+    summaryWarn: (n) => `${n} within 14 days`,
+    error: (msg) => `Error: ${msg}`,
+    loadError: (msg) => `Error loading: ${msg}`,
+    saveError: (msg) => `Error saving: ${msg}`,
+    deleteError: (msg) => `Error deleting: ${msg}`,
+    restoreError: (msg) => `Error restoring: ${msg}`,
+    titleNew: "New product",
+    titleEdit: "Edit product",
+    titleDuplicate: "Duplicate product",
+    confirmDelete: (name) => `Delete "${name}"?`,
+    deleted: (name) => `"${name}" deleted`,
+    undo: "Undo",
+    categoryExists: "A category with this name already exists.",
+    confirmDeleteCategory: (name, used) => `Delete the category "${name}"?`
+      + (used ? `\n${used} product${used === 1 ? "" : "s"} will be left without a category.` : ""),
+    categoryNameAria: (name) => `Category name ${name}`,
+    deleteCategoryAria: (name, n) => `Delete ${name} (${n} products)`,
+    noCategoryOption: "No category",
+    newCategoryOption: "+ New category…",
+    joining: "Joining the group…",
+    creating: "Creating the group…",
+    shareText: (name, code) => `Join the group "${name}" on Grocery Tracker with the code: ${code}`,
+    codeCopied: "Code copied",
+    confirmLeave: (name) => `Leave the group "${name}"? You can join again with the invite code.`,
+    groupRenamed: "Group name updated",
+    configMissing: "Set SUPABASE_URL and SUPABASE_ANON_KEY in config.js (see README).",
+    connectionError: (msg) => `Connection error: ${msg}`,
+  },
+};
+
+// The database functions answer in Italian; translate the ones users can see.
+const SERVER_ERRORS_EN = {
+  "Codice non valido": "Invalid code",
+  "Codice già in uso, scegline un altro": "Code already in use, pick another one",
+  "Il codice deve avere almeno 6 caratteri": "The code must be at least 6 characters",
+  "Non autenticato": "Not signed in",
+};
+
+function savedLanguage() {
+  try {
+    const lang = localStorage.getItem(LANGUAGE_KEY);
+    return lang in STRINGS ? lang : "it";
+  } catch {
+    return "it";
+  }
+}
+
+let lang = savedLanguage();
+
+function t(key, ...args) {
+  const value = STRINGS[lang][key] ?? STRINGS.it[key] ?? key;
+  return typeof value === "function" ? value(...args) : value;
+}
+
+function serverMessage(message) {
+  return lang === "en" ? SERVER_ERRORS_EN[message] || message : message;
+}
+
+// Fixed texts in index.html.
+function applyStaticTexts() {
+  document.documentElement.lang = lang;
+  for (const node of document.querySelectorAll("[data-i18n]")) node.textContent = t(node.dataset.i18n);
+  for (const node of document.querySelectorAll("[data-i18n-ph]")) node.placeholder = t(node.dataset.i18nPh);
+  for (const node of document.querySelectorAll("[data-i18n-aria]")) {
+    node.setAttribute("aria-label", t(node.dataset.i18nAria));
+  }
+}
+
+function setLanguage(next) {
+  if (!(next in STRINGS) || next === lang) return;
+  lang = next;
+  try {
+    localStorage.setItem(LANGUAGE_KEY, lang);
+  } catch {
+    // Private mode: the choice lasts until the app is closed.
+  }
+  applyStaticTexts();
+  render();
+  if ($("#locations-dialog").open) renderLocations();
+}
 
 // ---------- dates & expiry status ----------
 
@@ -45,21 +280,21 @@ function formatDate(iso) {
 }
 
 function relativeDays(days) {
-  if (days < -1) return `scaduto da ${-days} giorni`;
-  if (days === -1) return "scaduto ieri";
-  if (days === 0) return "scade oggi";
-  if (days === 1) return "scade domani";
-  return `tra ${days} giorni`;
+  if (days < -1) return t("relExpiredDays", -days);
+  if (days === -1) return t("relYesterday");
+  if (days === 0) return t("relToday");
+  if (days === 1) return t("relTomorrow");
+  return t("relInDays", days);
 }
 
 // Dated products first (nearest first), then products without a date.
 function compareProducts(a, b) {
   if (a.expires_on && b.expires_on) {
-    return a.expires_on.localeCompare(b.expires_on) || a.name.localeCompare(b.name, "it");
+    return a.expires_on.localeCompare(b.expires_on) || a.name.localeCompare(b.name, lang);
   }
   if (a.expires_on) return -1;
   if (b.expires_on) return 1;
-  return a.name.localeCompare(b.name, "it");
+  return a.name.localeCompare(b.name, lang);
 }
 
 // ---------- rendering ----------
@@ -125,7 +360,7 @@ function renderItem(p) {
   // Red "Elimina" strip uncovered when the item is swiped left.
   const swipeBg = el("span", "item-swipe-bg");
   swipeBg.setAttribute("aria-hidden", "true");
-  swipeBg.append(el("span", "item-swipe-label", "Elimina"));
+  swipeBg.append(el("span", "item-swipe-label", t("delete")));
 
   // The card holds the checkbox and the tappable button (a checkbox can't live inside a button)
   // and is what slides when swiping.
@@ -153,11 +388,9 @@ function renderExtendCheck(p) {
   box.type = "checkbox";
   box.checked = Boolean(p.extended_from);
   box.disabled = !p.expires_on;
-  box.setAttribute("aria-label", `${p.name}: +${EXTEND_MONTHS} mesi alla scadenza`);
+  box.setAttribute("aria-label", t("extendAria", p.name));
   box.addEventListener("change", () => toggleExtended(p, box.checked));
-  label.title = p.expires_on
-    ? `+${EXTEND_MONTHS} mesi alla scadenza`
-    : "Imposta una scadenza per usare +5 mesi";
+  label.title = p.expires_on ? t("extendLabel") : t("extendNeedsDate");
   label.append(box, el("span", "item-check-text", `+${EXTEND_MONTHS}m`));
   return label;
 }
@@ -170,7 +403,7 @@ function updateExtendHint() {
   box.disabled = !date;
   const hint = $("#extend-hint");
   hint.hidden = !(date && box.checked);
-  if (!hint.hidden) hint.textContent = `Nuova scadenza: ${formatDate(addMonths(date, EXTEND_MONTHS))}`;
+  if (!hint.hidden) hint.textContent = t("newExpiry", formatDate(addMonths(date, EXTEND_MONTHS)));
 }
 
 // Checked: remember the original date and push it 5 months later. Unchecked: put it back exactly.
@@ -186,7 +419,7 @@ async function toggleExtended(p, checked) {
   if (error) {
     Object.assign(p, before);
     render();
-    toast(`Errore: ${error.message}`);
+    toast(t("error", error.message));
   }
 }
 
@@ -315,13 +548,13 @@ function attachGestures(node, { onTap, onLongPress, onSwipeDelete }) {
 
 // Actions shown when holding an item. Add new entries here.
 const ITEM_ACTIONS = [
-  { label: "Duplica", run: (p) => openProduct(p, { duplicate: true }) },
+  { label: () => t("duplicate"), run: (p) => openProduct(p, { duplicate: true }) },
 ];
 
 function openItemMenu(p, anchor) {
   const menu = $("#item-menu");
   menu.replaceChildren(...ITEM_ACTIONS.map((action) => {
-    const btn = el("button", "item-menu-btn", action.label);
+    const btn = el("button", "item-menu-btn", action.label());
     btn.type = "button";
     btn.setAttribute("role", "menuitem");
     btn.addEventListener("click", () => {
@@ -356,11 +589,11 @@ function closeItemMenu() {
 function renderFilters() {
   const count = (id) => state.products.filter((p) => matchesFilter(p, id)).length;
   const options = [
-    { id: "all", label: "Tutti" },
+    { id: "all", label: t("all") },
     ...state.locations.map((l) => ({ id: l.id, label: l.name })),
   ];
   // Only show "Senza categoria" when something is actually in it.
-  if (count(NO_LOCATION) > 0) options.push({ id: NO_LOCATION, label: "Senza categoria" });
+  if (count(NO_LOCATION) > 0) options.push({ id: NO_LOCATION, label: t("noCategory") });
 
   const chips = options.map((opt) => {
     const chip = el("button", "chip", `${opt.label} ${count(opt.id)}`);
@@ -373,9 +606,9 @@ function renderFilters() {
     return chip;
   });
 
-  const add = el("button", "chip chip-add", state.locations.length ? "+" : "+ Categoria");
+  const add = el("button", "chip chip-add", state.locations.length ? "+" : t("addCategoryChip"));
   add.type = "button";
-  add.setAttribute("aria-label", "Gestisci categorie");
+  add.setAttribute("aria-label", t("manageCategories"));
   add.addEventListener("click", openLocations);
   $("#filters").replaceChildren(...chips, add);
 }
@@ -386,14 +619,14 @@ function renderSummary() {
   const expired = count("expired");
   const soon = count("soon");
   const warn = count("warn");
-  if (expired) parts.push(`${expired} scadut${expired === 1 ? "o" : "i"}`);
-  if (soon) parts.push(`${soon} entro 7 giorni`);
-  if (warn) parts.push(`${warn} entro 14 giorni`);
+  if (expired) parts.push(t("summaryExpired", expired));
+  if (soon) parts.push(t("summarySoon", soon));
+  if (warn) parts.push(t("summaryWarn", warn));
   $("#summary").textContent = parts.join(" · ");
 }
 
 let toastTimer;
-// Optional action renders a button inside the toast, e.g. { label: "Annulla", run }.
+// Optional action renders a button inside the toast, e.g. { label: t("undo"), run }.
 function toast(message, action) {
   const node = $("#toast");
   node.replaceChildren(el("span", null, message));
@@ -421,17 +654,20 @@ function showView(id) {
 async function loadData() {
   if (!state.household) return;
   const householdId = state.household.id;
-  const [locations, products] = await Promise.all([
+  const [locations, products, household] = await Promise.all([
     db.from("locations").select("*").eq("household_id", householdId)
       .order("position").order("created_at"),
     db.from("products").select("*").eq("household_id", householdId),
+    // Picks up a group name changed on another phone.
+    db.from("households").select("name").eq("id", householdId).maybeSingle(),
   ]);
   const error = locations.error || products.error;
   if (error) {
-    toast(`Errore nel caricamento: ${error.message}`);
+    toast(t("loadError", error.message));
     return;
   }
   if (state.household?.id !== householdId) return; // switched group meanwhile
+  if (household.data?.name) state.household.name = household.data.name;
   state.locations = locations.data;
   state.products = products.data;
   render();
@@ -476,7 +712,7 @@ function unsubscribeFromChanges() {
 function openProduct(p, { duplicate = false } = {}) {
   const form = $("#product-form");
   state.editingId = p && !duplicate ? p.id : null;
-  $("#product-title").textContent = duplicate ? "Duplica prodotto" : p ? "Modifica prodotto" : "Nuovo prodotto";
+  $("#product-title").textContent = t(duplicate ? "titleDuplicate" : p ? "titleEdit" : "titleNew");
   form.elements.name.value = p ? p.name : "";
   // New products go into the category being viewed, else the first one.
   const fallback = state.locations.some((l) => l.id === state.filter)
@@ -528,7 +764,7 @@ async function saveProduct(event) {
   $("#save-btn").disabled = false;
 
   if (error) {
-    showMsg("#product-msg", `Errore nel salvataggio: ${error.message}`);
+    showMsg("#product-msg", t("saveError", error.message));
     return;
   }
   $("#product-dialog").close();
@@ -537,10 +773,10 @@ async function saveProduct(event) {
 
 async function deleteProduct() {
   const name = $("#product-form").elements.name.value;
-  if (!state.editingId || !confirm(`Eliminare "${name}"?`)) return;
+  if (!state.editingId || !confirm(t("confirmDelete", name))) return;
   const { error } = await db.from("products").delete().eq("id", state.editingId);
   if (error) {
-    toast(`Errore nell'eliminazione: ${error.message}`);
+    toast(t("deleteError", error.message));
     return;
   }
   $("#product-dialog").close();
@@ -553,11 +789,11 @@ async function deleteProductBySwipe(p) {
   render();
   const { error } = await db.from("products").delete().eq("id", p.id);
   if (error) {
-    toast(`Errore nell'eliminazione: ${error.message}`);
+    toast(t("deleteError", error.message));
     loadData();
     return;
   }
-  toast(`"${p.name}" eliminato`, { label: "Annulla", run: () => restoreProduct(p) });
+  toast(t("deleted", p.name), { label: t("undo"), run: () => restoreProduct(p) });
 }
 
 async function restoreProduct(p) {
@@ -568,7 +804,7 @@ async function restoreProduct(p) {
     id, household_id, name, location_id: stillThere ? location_id : null,
     quantity, expires_on, extended_from, note, created_at,
   });
-  if (error) toast(`Errore nel ripristino: ${error.message}`);
+  if (error) toast(t("restoreError", error.message));
   loadData();
 }
 
@@ -581,7 +817,7 @@ function showMsg(selector, text) {
 }
 
 function locationErrorMessage(error) {
-  return error.code === "23505" ? "Esiste già una categoria con questo nome." : `Errore: ${error.message}`;
+  return error.code === "23505" ? t("categoryExists") : t("error", error.message);
 }
 
 // Returns the new category, or null (with the reason shown in msgSelector).
@@ -623,13 +859,10 @@ async function renameLocation(loc, rawName, input) {
 
 async function deleteLocation(loc) {
   const used = state.products.filter((p) => p.location_id === loc.id).length;
-  const detail = used
-    ? `\n${used} prodott${used === 1 ? "o resterà" : "i resteranno"} senza categoria.`
-    : "";
-  if (!confirm(`Eliminare la categoria "${loc.name}"?${detail}`)) return;
+  if (!confirm(t("confirmDeleteCategory", loc.name, used))) return;
   const { error } = await db.from("locations").delete().eq("id", loc.id);
   if (error) {
-    showMsg("#locations-msg", `Errore: ${error.message}`);
+    showMsg("#locations-msg", t("error", error.message));
     return;
   }
   showMsg("#locations-msg", "");
@@ -642,15 +875,15 @@ function renderLocations() {
     const input = el("input");
     input.value = loc.name;
     input.maxLength = 40;
-    input.setAttribute("aria-label", `Nome categoria ${loc.name}`);
+    input.setAttribute("aria-label", t("categoryNameAria", loc.name));
     input.addEventListener("change", () => renameLocation(loc, input.value, input));
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") input.blur();
     });
     const count = state.products.filter((p) => p.location_id === loc.id).length;
-    const del = el("button", "danger small", "Elimina");
+    const del = el("button", "danger small", t("delete"));
     del.type = "button";
-    del.setAttribute("aria-label", `Elimina ${loc.name} (${count} prodotti)`);
+    del.setAttribute("aria-label", t("deleteCategoryAria", loc.name, count));
     del.addEventListener("click", () => deleteLocation(loc));
     li.append(input, el("span", "muted location-count", String(count)), del);
     return li;
@@ -687,8 +920,8 @@ function fillLocationSelect(selectedId) {
   };
   select.replaceChildren(
     ...state.locations.map((l) => option(l.id, l.name)),
-    option("", "Nessuna categoria"),
-    option(NEW_LOCATION, "+ Nuova categoria…"),
+    option("", t("noCategoryOption")),
+    option(NEW_LOCATION, t("newCategoryOption")),
   );
   select.value = selectedId;
   select.dataset.previous = selectedId;
@@ -779,7 +1012,7 @@ function generateCode() {
 async function afterJoin(rpcResult) {
   const { data: householdId, error } = rpcResult;
   if (error) {
-    $("#join-msg").textContent = error.message;
+    $("#join-msg").textContent = serverMessage(error.message);
     return;
   }
   await loadHouseholds();
@@ -788,29 +1021,29 @@ async function afterJoin(rpcResult) {
 
 async function joinHousehold(event) {
   event.preventDefault();
-  $("#join-msg").textContent = "Accesso al gruppo…";
+  $("#join-msg").textContent = t("joining");
   await afterJoin(await db.rpc("join_household", { code: event.target.elements.code.value }));
 }
 
 async function createHousehold(event) {
   event.preventDefault();
   const form = event.target;
-  $("#join-msg").textContent = "Creazione del gruppo…";
+  $("#join-msg").textContent = t("creating");
   await afterJoin(await db.rpc("create_household", {
     code: form.elements.code.value,
-    household_name: form.elements.name.value,
+    household_name: form.elements.name.value.trim() || t("defaultGroupName"),
   }));
 }
 
 async function shareCode() {
   const { name, invite_code: code } = state.household;
-  const text = `Entra nel gruppo "${name}" su Grocery Tracker con il codice: ${code}`;
+  const text = t("shareText", name, code);
   try {
     if (navigator.share) {
       await navigator.share({ title: "Grocery Tracker", text, url: location.href });
     } else {
       await navigator.clipboard.writeText(code);
-      toast("Codice copiato");
+      toast(t("codeCopied"));
     }
   } catch {
     // The user closed the share sheet.
@@ -819,10 +1052,10 @@ async function shareCode() {
 
 async function leaveHousehold() {
   const { id, name } = state.household;
-  if (!confirm(`Uscire dal gruppo "${name}"? Potrai rientrare con il codice invito.`)) return;
+  if (!confirm(t("confirmLeave", name))) return;
   const { error } = await db.from("household_members").delete().eq("household_id", id).eq("user_id", state.user.id);
   if (error) {
-    toast(`Errore: ${error.message}`);
+    toast(t("error", error.message));
     return;
   }
   $("#settings-dialog").close();
@@ -834,9 +1067,15 @@ async function leaveHousehold() {
 
 function openSettings() {
   const { name, invite_code: code } = state.household;
-  $("#household-name").textContent = name;
+  $("#household-name").value = name;
   $("#household-code").textContent = code;
+  $("#language-select").value = lang;
+  showMsg("#household-msg", "");
+  fillHouseholdSelect();
+  $("#settings-dialog").showModal();
+}
 
+function fillHouseholdSelect() {
   const select = $("#household-select");
   select.replaceChildren(...state.households.map((h) => {
     const option = el("option", null, h.name);
@@ -845,89 +1084,31 @@ function openSettings() {
     return option;
   }));
   $("#household-switch").hidden = state.households.length < 2;
-
-  updatePushUI();
-  $("#settings-dialog").showModal();
 }
 
-// ---------- push notifications ----------
-
-const pushSupported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
-const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-const isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-
-function urlBase64ToUint8Array(base64) {
-  const padded = (base64 + "=".repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
-  return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
-}
-
-async function currentSubscription() {
-  const reg = await navigator.serviceWorker.ready;
-  return reg.pushManager.getSubscription();
-}
-
-async function updatePushUI() {
-  const status = $("#push-status");
-  const btn = $("#push-btn");
-  btn.hidden = true;
-
-  if (!pushSupported) {
-    status.textContent = isIOS && !isStandalone
-      ? "Su iPhone le notifiche funzionano solo dall'app sulla schermata Home: in Safari tocca Condividi → Aggiungi alla schermata Home, poi apri l'app da lì."
-      : "Questo browser non supporta le notifiche.";
+// Everyone in the group sees the new name (it's stored on the household).
+async function renameHousehold() {
+  const input = $("#household-name");
+  const household = state.household;
+  const name = input.value.trim();
+  if (!name || name === household.name) {
+    input.value = household.name;
+    showMsg("#household-msg", "");
     return;
   }
-  if (VAPID_PUBLIC_KEY.startsWith("YOUR-")) {
-    status.textContent = "Notifiche non ancora configurate (VAPID_PUBLIC_KEY in config.js).";
+  // .select() so a change refused by the row policies (0 rows, no error) is noticed too.
+  const { data, error } = await db.from("households").update({ name }).eq("id", household.id).select("id");
+  if (error || !data?.length) {
+    showMsg("#household-msg", t("error", error?.message || "—"));
+    input.value = household.name;
     return;
   }
-  if (Notification.permission === "denied") {
-    status.textContent = "Notifiche bloccate. Riattivale in Impostazioni → Notifiche → Grocery.";
-    return;
-  }
-
-  const sub = await currentSubscription();
-  status.textContent = sub
-    ? "Attive su questo dispositivo. Ricevi un avviso ogni mattina per i prodotti in scadenza."
-    : "Ricevi un avviso ogni mattina per i prodotti che scadono entro 3 giorni.";
-  btn.textContent = sub ? "Disattiva notifiche" : "Attiva notifiche";
-  btn.hidden = false;
-}
-
-async function togglePush() {
-  const btn = $("#push-btn");
-  btn.disabled = true;
-  try {
-    const existing = await currentSubscription();
-    if (existing) {
-      await db.from("push_subscriptions").delete().eq("endpoint", existing.endpoint);
-      await existing.unsubscribe();
-      toast("Notifiche disattivate");
-    } else {
-      // iOS requires the permission prompt to come straight from the tap.
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") return;
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-      });
-      const { keys } = sub.toJSON();
-      const { error } = await db
-        .from("push_subscriptions")
-        .upsert({ endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth }, { onConflict: "endpoint" });
-      if (error) {
-        await sub.unsubscribe();
-        throw error;
-      }
-      toast("Notifiche attivate");
-    }
-  } catch (err) {
-    toast(`Errore notifiche: ${err.message}`);
-  } finally {
-    btn.disabled = false;
-    updatePushUI();
-  }
+  showMsg("#household-msg", "");
+  household.name = name;
+  input.value = name;
+  fillHouseholdSelect();
+  render();
+  toast(t("groupRenamed"));
 }
 
 // ---------- startup ----------
@@ -977,7 +1158,11 @@ function wireUp() {
     showJoin();
   });
   $("#leave-btn").addEventListener("click", leaveHousehold);
-  $("#push-btn").addEventListener("click", togglePush);
+  $("#household-name").addEventListener("change", renameHousehold);
+  $("#household-name").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") e.target.blur();
+  });
+  $("#language-select").addEventListener("change", (e) => setLanguage(e.target.value));
 
   // Close the item menu on any tap outside it, on scroll, resize or Escape.
   document.addEventListener("pointerdown", (e) => {
@@ -997,10 +1182,11 @@ function wireUp() {
 }
 
 async function start() {
+  applyStaticTexts();
   wireUp();
 
   if (SUPABASE_URL.includes("YOUR-PROJECT-REF")) {
-    $("#loading-msg").textContent = "Configura SUPABASE_URL e SUPABASE_ANON_KEY in config.js (vedi README).";
+    $("#loading-msg").textContent = t("configMissing");
     return;
   }
 
@@ -1018,7 +1204,7 @@ async function start() {
     await loadHouseholds();
     await openHousehold(rememberedHousehold());
   } catch (err) {
-    $("#loading-msg").textContent = `Errore di connessione: ${err.message}`;
+    $("#loading-msg").textContent = t("connectionError", err.message);
     showView("loading-view");
   }
 }

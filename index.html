@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#2f6b4f">
+  <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Grocery">
@@ -14,9 +15,10 @@
   <title>Grocery Tracker</title>
 </head>
 <body>
+  <!-- Texts come from STRINGS in app.js: data-i18n = text, data-i18n-ph = placeholder, data-i18n-aria = aria-label -->
   <main id="loading-view" class="view center">
     <img src="icons/icon-192.png" alt="" class="logo">
-    <p id="loading-msg" class="msg" role="status">Caricamento…</p>
+    <p id="loading-msg" class="msg" role="status" data-i18n="loading">Caricamento…</p>
   </main>
 
   <!-- No accounts: each phone signs in anonymously and joins a household with its invite code -->
@@ -24,126 +26,131 @@
     <img src="icons/icon-192.png" alt="" class="logo">
     <h1>Grocery Tracker</h1>
     <form id="join-form" class="stack">
-      <h2>Entra in un gruppo</h2>
-      <label>Codice invito
+      <h2 data-i18n="joinTitle">Entra in un gruppo</h2>
+      <label><span data-i18n="inviteCode">Codice invito</span>
         <input name="code" autocomplete="off" autocapitalize="none" spellcheck="false" required minlength="6">
       </label>
-      <button type="submit">Entra</button>
+      <button type="submit" data-i18n="join">Entra</button>
     </form>
-    <p class="muted">oppure</p>
+    <p class="muted" data-i18n="or">oppure</p>
     <form id="create-form" class="stack">
-      <h2>Crea un nuovo gruppo</h2>
-      <label>Nome del gruppo
-        <input name="name" maxlength="40" placeholder="es. Casa" autocomplete="off">
+      <h2 data-i18n="createTitle">Crea un nuovo gruppo</h2>
+      <label><span data-i18n="groupName">Nome del gruppo</span>
+        <input name="name" maxlength="40" placeholder="es. Casa" data-i18n-ph="groupNamePh" autocomplete="off">
       </label>
-      <label>Codice invito (scegli tu, almeno 6 caratteri)
+      <label><span data-i18n="inviteCodePick">Codice invito (scegli tu, almeno 6 caratteri)</span>
         <span class="row">
           <input name="code" autocomplete="off" autocapitalize="none" spellcheck="false" required minlength="6" maxlength="40">
-          <button type="button" id="generate-code" class="secondary">Genera</button>
+          <button type="button" id="generate-code" class="secondary" data-i18n="generate">Genera</button>
         </span>
       </label>
-      <button type="submit">Crea gruppo</button>
+      <button type="submit" data-i18n="createGroup">Crea gruppo</button>
     </form>
-    <button type="button" id="join-back" class="link" hidden>Torna alla lista</button>
+    <button type="button" id="join-back" class="link" hidden data-i18n="backToList">Torna alla lista</button>
     <p id="join-msg" class="msg" role="status"></p>
   </main>
 
   <main id="app-view" class="view" hidden>
     <header class="topbar">
       <h1 id="app-title">Grocery Tracker</h1>
-      <button type="button" id="settings-btn" class="icon-btn" aria-label="Impostazioni">⚙︎</button>
+      <button type="button" id="settings-btn" class="icon-btn" aria-label="Impostazioni" data-i18n-aria="settings">⚙︎</button>
     </header>
     <div class="toolbar">
-      <input id="search" type="search" placeholder="Cerca prodotto…" autocomplete="off">
+      <input id="search" type="search" placeholder="Cerca prodotto…" data-i18n-ph="searchPh" autocomplete="off">
       <div id="filters" class="chips"></div>
     </div>
     <p id="summary" class="summary"></p>
     <ul id="list" class="list"></ul>
-    <p id="empty" class="empty" hidden>Nessun prodotto.</p>
-    <button type="button" id="add-btn" class="fab" aria-label="Aggiungi prodotto">+</button>
+    <p id="empty" class="empty" hidden data-i18n="noProducts">Nessun prodotto.</p>
+    <button type="button" id="add-btn" class="fab" aria-label="Aggiungi prodotto" data-i18n-aria="addProduct">+</button>
   </main>
 
   <dialog id="product-dialog">
     <form id="product-form" class="stack">
       <h2 id="product-title">Nuovo prodotto</h2>
-      <label>Nome
+      <label><span data-i18n="name">Nome</span>
         <input name="name" required maxlength="80" autocomplete="off">
       </label>
-      <label>Categoria
+      <label><span data-i18n="category">Categoria</span>
         <select name="location"></select>
       </label>
       <!-- Shown when "+ Nuova categoria…" is picked in the select above -->
       <div id="new-location-row" class="row" hidden>
-        <input id="new-location-name" maxlength="40" placeholder="es. Frigo" autocomplete="off" aria-label="Nome nuova categoria">
-        <button type="button" id="new-location-add">Aggiungi</button>
+        <input id="new-location-name" maxlength="40" placeholder="es. Frigo" data-i18n-ph="categoryPh" autocomplete="off" aria-label="Nome nuova categoria" data-i18n-aria="newCategoryName">
+        <button type="button" id="new-location-add" data-i18n="add">Aggiungi</button>
       </div>
       <p id="product-msg" class="msg error" role="status" hidden></p>
-      <label>Quantità
-        <input name="quantity" maxlength="40" placeholder="es. 2 conf" autocomplete="off">
+      <label><span data-i18n="quantity">Quantità</span>
+        <input name="quantity" maxlength="40" placeholder="es. 2 conf" data-i18n-ph="quantityPh" autocomplete="off">
       </label>
-      <label>Scadenza
+      <label><span data-i18n="expiry">Scadenza</span>
         <input name="expires_on" type="date">
       </label>
       <!-- Same as the "+5m" checkbox in the list: the date above stays the original one -->
       <label class="check-row">
         <input name="extend" type="checkbox">
-        <span>+5 mesi alla scadenza</span>
+        <span data-i18n="extendLabel">+5 mesi alla scadenza</span>
       </label>
       <p id="extend-hint" class="hint" hidden></p>
-      <label>Nota
-        <input name="note" maxlength="80" placeholder="es. il prima possibile" autocomplete="off">
+      <label><span data-i18n="note">Nota</span>
+        <input name="note" maxlength="80" placeholder="es. il prima possibile" data-i18n-ph="notePh" autocomplete="off">
       </label>
       <div class="actions">
-        <button type="button" id="delete-btn" class="danger" hidden>Elimina</button>
+        <button type="button" id="delete-btn" class="danger" hidden data-i18n="delete">Elimina</button>
         <span class="spacer"></span>
-        <button type="button" id="cancel-btn" class="secondary">Annulla</button>
-        <button type="submit" id="save-btn">Salva</button>
+        <button type="button" id="cancel-btn" class="secondary" data-i18n="cancel">Annulla</button>
+        <button type="submit" id="save-btn" data-i18n="save">Salva</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="settings-dialog">
     <div class="stack">
-      <h2>Impostazioni</h2>
-      <h3>Gruppo</h3>
-      <label id="household-switch" hidden>Gruppo attivo
+      <h2 data-i18n="settings">Impostazioni</h2>
+      <h3 data-i18n="group">Gruppo</h3>
+      <label id="household-switch" hidden><span data-i18n="activeGroup">Gruppo attivo</span>
         <select id="household-select"></select>
       </label>
-      <p><b id="household-name"></b><br>
-        <span class="muted">Codice invito:</span> <code id="household-code"></code></p>
+      <label><span data-i18n="groupName">Nome del gruppo</span>
+        <input id="household-name" maxlength="40" autocomplete="off" enterkeyhint="done">
+      </label>
+      <p id="household-msg" class="msg error" role="status" hidden></p>
+      <p><span class="muted" data-i18n="inviteCodeColon">Codice invito:</span> <code id="household-code"></code></p>
       <div class="actions">
-        <button type="button" id="share-code" class="secondary">Condividi codice</button>
-        <button type="button" id="other-household" class="secondary">Altro gruppo</button>
+        <button type="button" id="share-code" class="secondary" data-i18n="shareCode">Condividi codice</button>
+        <button type="button" id="other-household" class="secondary" data-i18n="otherGroup">Altro gruppo</button>
       </div>
-      <h3>Categorie</h3>
+      <h3 data-i18n="categories">Categorie</h3>
       <div class="actions">
-        <button type="button" id="manage-locations" class="secondary">Gestisci categorie</button>
+        <button type="button" id="manage-locations" class="secondary" data-i18n="manageCategories">Gestisci categorie</button>
       </div>
-      <h3>Notifiche</h3>
-      <p id="push-status"></p>
-      <button type="button" id="push-btn" hidden>Attiva notifiche</button>
+      <h3 data-i18n="language">Lingua</h3>
+      <select id="language-select" aria-label="Lingua" data-i18n-aria="language">
+        <option value="it">Italiano</option>
+        <option value="en">English</option>
+      </select>
       <div class="actions">
-        <button type="button" id="leave-btn" class="danger">Esci dal gruppo</button>
+        <button type="button" id="leave-btn" class="danger" data-i18n="leaveGroup">Esci dal gruppo</button>
         <span class="spacer"></span>
-        <button type="button" id="settings-close">Chiudi</button>
+        <button type="button" id="settings-close" data-i18n="close">Chiudi</button>
       </div>
     </div>
   </dialog>
 
   <dialog id="locations-dialog">
     <div class="stack">
-      <h2>Categorie</h2>
-      <p class="muted">Crea i posti dove tieni i prodotti, es. Frigo, Freezer, Dispensa.</p>
+      <h2 data-i18n="categories">Categorie</h2>
+      <p class="muted" data-i18n="categoriesIntro">Crea i posti dove tieni i prodotti, es. Frigo, Freezer, Dispensa.</p>
       <ul id="locations-list" class="locations-list"></ul>
-      <p id="locations-empty" class="muted" hidden>Nessuna categoria.</p>
+      <p id="locations-empty" class="muted" hidden data-i18n="noCategories">Nessuna categoria.</p>
       <form id="location-form" class="row">
-        <input name="name" maxlength="40" placeholder="Nuova categoria" autocomplete="off" required aria-label="Nome nuova categoria">
-        <button type="submit">Aggiungi</button>
+        <input name="name" maxlength="40" placeholder="Nuova categoria" data-i18n-ph="newCategory" autocomplete="off" required aria-label="Nome nuova categoria" data-i18n-aria="newCategoryName">
+        <button type="submit" data-i18n="add">Aggiungi</button>
       </form>
       <p id="locations-msg" class="msg error" role="status" hidden></p>
       <div class="actions">
         <span class="spacer"></span>
-        <button type="button" id="locations-close">Chiudi</button>
+        <button type="button" id="locations-close" data-i18n="close">Chiudi</button>
       </div>
     </div>
   </dialog>
