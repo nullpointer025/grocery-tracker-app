@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>graphify - graphify-out\graph.html</title>
+<script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"
+        integrity="sha384-Ux6phic9PEHJ38YtrijhkzyJ8yQlH8i/+buBR8s3mAZOJrP1gwyvAcIYl3GWtpX1"
+        crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f0f1a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; display: flex; height: 100vh; overflow: hidden; }
+  #graph { flex: 1; }
+  #sidebar { width: 280px; background: #1a1a2e; border-left: 1px solid #2a2a4e; display: flex; flex-direction: column; overflow: hidden; }
+  #search-wrap { padding: 12px; border-bottom: 1px solid #2a2a4e; }
+  #search { width: 100%; background: #0f0f1a; border: 1px solid #3a3a5e; color: #e0e0e0; padding: 7px 10px; border-radius: 6px; font-size: 13px; outline: none; }
+  #search:focus { border-color: #4E79A7; }
+  #search-results { max-height: 140px; overflow-y: auto; padding: 4px 12px; border-bottom: 1px solid #2a2a4e; display: none; }
+  .search-item { padding: 4px 6px; cursor: pointer; border-radius: 4px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .search-item:hover { background: #2a2a4e; }
+  #info-panel { padding: 14px; border-bottom: 1px solid #2a2a4e; min-height: 140px; }
+  #info-panel h3 { font-size: 13px; color: #aaa; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  #info-content { font-size: 13px; color: #ccc; line-height: 1.6; }
+  #info-content .field { margin-bottom: 5px; }
+  #info-content .field b { color: #e0e0e0; }
+  #info-content .empty { color: #555; font-style: italic; }
+  .neighbor-link { display: block; padding: 2px 6px; margin: 2px 0; border-radius: 3px; cursor: pointer; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-left: 3px solid #333; }
+  .neighbor-link:hover { background: #2a2a4e; }
+  #neighbors-list { max-height: 160px; overflow-y: auto; margin-top: 4px; }
+  #legend-wrap { flex: 1; overflow-y: auto; padding: 12px; }
+  #legend-wrap h3 { font-size: 13px; color: #aaa; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .legend-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; border-radius: 4px; font-size: 12px; }
+  .legend-item:hover { background: #2a2a4e; padding-left: 4px; }
+  .legend-item.dimmed { opacity: 0.35; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .legend-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .legend-count { color: #666; font-size: 11px; }
+  #stats { padding: 10px 14px; border-top: 1px solid #2a2a4e; font-size: 11px; color: #555; }
+  #legend-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 4px 0; }
+  #legend-controls label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #aaa; user-select: none; }
+  #legend-controls label:hover { color: #e0e0e0; }
+  .legend-cb, #select-all-cb { appearance: none; -webkit-appearance: none; width: 14px; height: 14px; border: 1.5px solid #3a3a5e; border-radius: 3px; background: #0f0f1a; cursor: pointer; position: relative; flex-shrink: 0; }
+  .legend-cb:checked, #select-all-cb:checked { background: #4E79A7; border-color: #4E79A7; }
+  .legend-cb:checked::after, #select-all-cb:checked::after { content: ''; position: absolute; left: 3.5px; top: 1px; width: 4px; height: 7px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  #select-all-cb:indeterminate { background: #4E79A7; border-color: #4E79A7; }
+  #select-all-cb:indeterminate::after { content: ''; position: absolute; left: 2px; top: 5px; width: 8px; height: 2px; background: #fff; border: none; transform: none; }
+</style>
+</head>
+<body>
+<div id="graph"></div>
+<div id="sidebar">
+  <div id="search-wrap">
+    <input id="search" type="text" placeholder="Search nodes..." autocomplete="off">
+    <div id="search-results"></div>
+  </div>
+  <div id="info-panel">
+    <h3>Node Info</h3>
+    <div id="info-content"><span class="empty">Click a node to inspect it</span></div>
+  </div>
+  <div id="legend-wrap">
+    <h3>Communities</h3>
+    <div id="legend-controls">
+      <label><input type="checkbox" id="select-all-cb" checked onchange="toggleAllCommunities(!this.checked)">Select All</label>
+    </div>
+    <div id="legend"></div>
+  </div>
+  <div id="stats">66 nodes &middot; 133 edges &middot; 11 communities</div>
+</div>
+<script>
+const RAW_NODES = [{"id": "app", "label": "app.js", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 40.0, "font": {"size": 12, "color": "#ffffff"}, "title": "app.js", "community": 2, "community_name": "app.js", "source_file": "app.js", "file_type": "code", "degree": 46}, {"id": "app_db", "label": "db", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "db", "community": 2, "community_name": "app.js", "source_file": "app.js", "file_type": "code", "degree": 1}, {"id": "app_locations", "label": "LOCATIONS", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "LOCATIONS", "community": 2, "community_name": "app.js", "source_file": "app.js", "file_type": "code", "degree": 1}, {"id": "app_location_label", "label": "LOCATION_LABEL", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "LOCATION_LABEL", "community": 2, "community_name": "app.js", "source_file": "app.js", "file_type": "code", "degree": 1}, {"id": "app_state", "label": "state", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "state", "community": 2, "community_name": "app.js", "source_file": "app.js", "file_type": "code", "degree": 1}, {"id": "app_daysuntil", "label": "daysUntil()", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 12.0, "font": {"size": 0, "color": "#ffffff"}, "title": "daysUntil()", "community": 7, "community_name": "render", "source_file": "app.js", "file_type": "code", "degree": 3}, {"id": "app_expirystatus", "label": "expiryStatus()", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 12.6, "font": {"size": 0, "color": "#ffffff"}, "title": "expiryStatus()", "community": 7, "community_name": "render", "source_file": "app.js", "file_type": "code", "degree": 4}, {"id": "app_formatdate", "label": "formatDate()", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 11.3, "font": {"size": 0, "color": "#ffffff"}, "title": "formatDate()", "community": 5, "community_name": "renderItem", "source_file": "app.js", "file_type": "code", "degree": 2}, {"id": "app_relativedays", "label": "relativeDays()", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 11.3, "font": {"size": 0, "color": "#ffffff"}, "title": "relativeDays()", "community": 5, "community_name": "renderItem", "source_file": "app.js", "file_type": "code", "degree": 2}, {"id": "app_compareproducts", "label": "compareProducts()", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 11.3, "font": {"size": 0, "color": "#ffffff"}, "title": "compareProducts()", "community": 7, "community_name": "render", "source_file": "app.js", "file_type": "code", "degree": 2}, {"id": "app_el", "label": "el()", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 13.9, "font": {"size": 0, "color": "#ffffff"}, "title": "el()", "community": 6, "community_name": "el", "source_file": "app.js", "file_type": "code", "degree": 6}, {"id": "app_render", "label": "render()", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 15.2, "font": {"size": 12, "color": "#ffffff"}, "title": "render()", "community": 7, "community_name": "render", "source_file": "app.js", "file_type": "code", "degree": 8}, {"id": "app_renderitem", "label": "renderItem()", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 16.5, "font": {"size": 12, "color": "#ffffff"}, "title": "renderItem()", "community": 5, "community_name": "renderItem", "source_file": "app.js", "file_type": "code", "degree": 10}, {"id": "app_attachpress", "label": "attachPress()", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 11.3, "font": {"size": 0, "color": "#ffffff"}, "title": "attachPress()", "community": 5, "community_name": "renderItem", "source_file": "app.js", "file_type": "code", "degree": 2}, {"id": "app_item_actions", "label": "ITEM_ACTIONS", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "ITEM_ACTIONS", "community": 2, "community_name": "app.js", "source_file": "app.js", "file_type": "code", "degree": 1}, {"id": "app_openitemmenu", "label": "openItemMenu()", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 12.6, "font": {"size": 0, "color": "#ffffff"}, "title": "openItemMenu()", "community": 6, "community_name": "el", "source_file": "app.js", "file_type": "code", "degree": 4}, {"id": "app_closeitemmenu", "label": "closeItemMenu()", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 12.0, "font": {"size": 0, "color": "#ffffff"}, "title": "closeItemMenu()", "community": 6, "community_name": "el", "source_file": "app.js", "file_type": "code", "degree": 3}, {"id": "app_renderfilters", "label": "renderFilters()", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 12.0, "font": {"size": 0, "color": "#ffffff"}, "title": "renderFilters()", "community": 6, "community_name": "el", "source_file": "app.js", "file_type": "code", "degree": 3}, {"id": "app_rendersummary", "label": "renderSummary()", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 12.0, "font": {"size": 0, "color": "#ffffff"}, "title": "renderSummary()", "community": 7, "community_name": "render", "source_file": "app.js", "file_type": "code", "degree": 3}, {"id": "app_toast", "label": "toast()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 14.6, "font": {"size": 12, "color": "#ffffff"}, "title": "toast()", "community": 3, "community_name": "loadProducts", "source_file": "app.js", "file_type": "code", "degree": 7}, {"id": "app_showview", "label": "showView()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.3, "font": {"size": 0, "color": "#ffffff"}, "title": "showView()", "community": 0, "community_name": "wireUp", "source_file": "app.js", "file_type": "code", "degree": 5}, {"id": "app_loadproducts", "label": "loadProducts()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 15.2, "font": {"size": 12, "color": "#ffffff"}, "title": "loadProducts()", "community": 3, "community_name": "loadProducts", "source_file": "app.js", "file_type": "code", "degree": 8}, {"id": "app_schedulereload", "label": "scheduleReload()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 12.0, "font": {"size": 0, "color": "#ffffff"}, "title": "scheduleReload()", "community": 3, "community_name": "loadProducts", "source_file": "app.js", "file_type": "code", "degree": 3}, {"id": "app_subscribetochanges", "label": "subscribeToChanges()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 12.6, "font": {"size": 0, "color": "#ffffff"}, "title": "subscribeToChanges()", "community": 3, "community_name": "loadProducts", "source_file": "app.js", "file_type": "code", "degree": 4}, {"id": "app_unsubscribefromchanges", "label": "unsubscribeFromChanges()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 12.0, "font": {"size": 0, "color": "#ffffff"}, "title": "unsubscribeFromChanges()", "community": 3, "community_name": "loadProducts", "source_file": "app.js", "file_type": "code", "degree": 3}, {"id": "app_openproduct", "label": "openProduct()", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 12.0, "font": {"size": 0, "color": "#ffffff"}, "title": "openProduct()", "community": 5, "community_name": "renderItem", "source_file": "app.js", "file_type": "code", "degree": 3}, {"id": "app_saveproduct", "label": "saveProduct()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 12.6, "font": {"size": 0, "color": "#ffffff"}, "title": "saveProduct()", "community": 3, "community_name": "loadProducts", "source_file": "app.js", "file_type": "code", "degree": 4}, {"id": "app_deleteproduct", "label": "deleteProduct()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 12.6, "font": {"size": 0, "color": "#ffffff"}, "title": "deleteProduct()", "community": 3, "community_name": "loadProducts", "source_file": "app.js", "file_type": "code", "degree": 4}, {"id": "app_rememberhousehold", "label": "rememberHousehold()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 11.3, "font": {"size": 0, "color": "#ffffff"}, "title": "rememberHousehold()", "community": 2, "community_name": "app.js", "source_file": "app.js", "file_type": "code", "degree": 2}, {"id": "app_rememberedhousehold", "label": "rememberedHousehold()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 11.3, "font": {"size": 0, "color": "#ffffff"}, "title": "rememberedHousehold()", "community": 0, "community_name": "wireUp", "source_file": "app.js", "file_type": "code", "degree": 2}, {"id": "app_loadhouseholds", "label": "loadHouseholds()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 12.6, "font": {"size": 0, "color": "#ffffff"}, "title": "loadHouseholds()", "community": 0, "community_name": "wireUp", "source_file": "app.js", "file_type": "code", "degree": 4}, {"id": "app_openhousehold", "label": "openHousehold()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 17.8, "font": {"size": 12, "color": "#ffffff"}, "title": "openHousehold()", "community": 0, "community_name": "wireUp", "source_file": "app.js", "file_type": "code", "degree": 12}, {"id": "app_showjoin", "label": "showJoin()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 12.6, "font": {"size": 0, "color": "#ffffff"}, "title": "showJoin()", "community": 0, "community_name": "wireUp", "source_file": "app.js", "file_type": "code", "degree": 4}, {"id": "app_generatecode", "label": "generateCode()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 11.3, "font": {"size": 0, "color": "#ffffff"}, "title": "generateCode()", "community": 2, "community_name": "app.js", "source_file": "app.js", "file_type": "code", "degree": 2}, {"id": "app_afterjoin", "label": "afterJoin()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.3, "font": {"size": 0, "color": "#ffffff"}, "title": "afterJoin()", "community": 0, "community_name": "wireUp", "source_file": "app.js", "file_type": "code", "degree": 5}, {"id": "app_joinhousehold", "label": "joinHousehold()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 12.0, "font": {"size": 0, "color": "#ffffff"}, "title": "joinHousehold()", "community": 0, "community_name": "wireUp", "source_file": "app.js", "file_type": "code", "degree": 3}, {"id": "app_createhousehold", "label": "createHousehold()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 12.0, "font": {"size": 0, "color": "#ffffff"}, "title": "createHousehold()", "community": 0, "community_name": "wireUp", "source_file": "app.js", "file_type": "code", "degree": 3}, {"id": "app_sharecode", "label": "shareCode()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 12.0, "font": {"size": 0, "color": "#ffffff"}, "title": "shareCode()", "community": 3, "community_name": "loadProducts", "source_file": "app.js", "file_type": "code", "degree": 3}, {"id": "app_leavehousehold", "label": "leaveHousehold()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.3, "font": {"size": 0, "color": "#ffffff"}, "title": "leaveHousehold()", "community": 0, "community_name": "wireUp", "source_file": "app.js", "file_type": "code", "degree": 5}, {"id": "app_opensettings", "label": "openSettings()", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 12.6, "font": {"size": 0, "color": "#ffffff"}, "title": "openSettings()", "community": 6, "community_name": "el", "source_file": "app.js", "file_type": "code", "degree": 4}, {"id": "app_isios", "label": "isIOS", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "isIOS", "community": 2, "community_name": "app.js", "source_file": "app.js", "file_type": "code", "degree": 1}, {"id": "app_urlbase64touint8array", "label": "urlBase64ToUint8Array()", "color": {"background": "#9C755F", "border": "#9C755F", "highlight": {"background": "#ffffff", "border": "#9C755F"}}, "size": 11.3, "font": {"size": 0, "color": "#ffffff"}, "title": "urlBase64ToUint8Array()", "community": 8, "community_name": "togglePush", "source_file": "app.js", "file_type": "code", "degree": 2}, {"id": "app_currentsubscription", "label": "currentSubscription()", "color": {"background": "#9C755F", "border": "#9C755F", "highlight": {"background": "#ffffff", "border": "#9C755F"}}, "size": 12.0, "font": {"size": 0, "color": "#ffffff"}, "title": "currentSubscription()", "community": 8, "community_name": "togglePush", "source_file": "app.js", "file_type": "code", "degree": 3}, {"id": "app_updatepushui", "label": "updatePushUI()", "color": {"background": "#9C755F", "border": "#9C755F", "highlight": {"background": "#ffffff", "border": "#9C755F"}}, "size": 12.6, "font": {"size": 0, "color": "#ffffff"}, "title": "updatePushUI()", "community": 8, "community_name": "togglePush", "source_file": "app.js", "file_type": "code", "degree": 4}, {"id": "app_togglepush", "label": "togglePush()", "color": {"background": "#9C755F", "border": "#9C755F", "highlight": {"background": "#ffffff", "border": "#9C755F"}}, "size": 13.9, "font": {"size": 0, "color": "#ffffff"}, "title": "togglePush()", "community": 8, "community_name": "togglePush", "source_file": "app.js", "file_type": "code", "degree": 6}, {"id": "app_wireup", "label": "wireUp()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 22.4, "font": {"size": 12, "color": "#ffffff"}, "title": "wireUp()", "community": 0, "community_name": "wireUp", "source_file": "app.js", "file_type": "code", "degree": 19}, {"id": "app_start", "label": "start()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.9, "font": {"size": 0, "color": "#ffffff"}, "title": "start()", "community": 0, "community_name": "wireUp", "source_file": "app.js", "file_type": "code", "degree": 6}, {"id": "config", "label": "config.js", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 10.0, "font": {"size": 0, "color": "#ffffff"}, "title": "config.js", "community": 10, "community_name": "config.js", "source_file": "config.js", "file_type": "code", "degree": 0}, {"id": "supabase_functions_notify_expiring_index", "label": "index.ts", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 13.3, "font": {"size": 0, "color": "#ffffff"}, "title": "index.ts", "community": 4, "community_name": "index.ts", "source_file": "supabase/functions/notify-expiring/index.ts", "file_type": "code", "degree": 5}, {"id": "supabase_functions_notify_expiring_index_todayintimezone", "label": "todayInTimeZone()", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "todayInTimeZone()", "community": 4, "community_name": "index.ts", "source_file": "supabase/functions/notify-expiring/index.ts", "file_type": "code", "degree": 1}, {"id": "supabase_functions_notify_expiring_index_adddays", "label": "addDays()", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "addDays()", "community": 4, "community_name": "index.ts", "source_file": "supabase/functions/notify-expiring/index.ts", "file_type": "code", "degree": 1}, {"id": "supabase_functions_notify_expiring_index_shortdate", "label": "shortDate()", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 11.3, "font": {"size": 0, "color": "#ffffff"}, "title": "shortDate()", "community": 4, "community_name": "index.ts", "source_file": "supabase/functions/notify-expiring/index.ts", "file_type": "code", "degree": 2}, {"id": "supabase_functions_notify_expiring_index_json", "label": "json()", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "json()", "community": 4, "community_name": "index.ts", "source_file": "supabase/functions/notify-expiring/index.ts", "file_type": "code", "degree": 1}, {"id": "supabase_functions_notify_expiring_index_buildpayload", "label": "buildPayload()", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 11.3, "font": {"size": 0, "color": "#ffffff"}, "title": "buildPayload()", "community": 4, "community_name": "index.ts", "source_file": "supabase/functions/notify-expiring/index.ts", "file_type": "code", "degree": 2}, {"id": "sw", "label": "sw.js", "color": {"background": "#BAB0AC", "border": "#BAB0AC", "highlight": {"background": "#ffffff", "border": "#BAB0AC"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "sw.js", "community": 9, "community_name": "sw.js", "source_file": "sw.js", "file_type": "code", "degree": 1}, {"id": "sw_app_shell", "label": "APP_SHELL", "color": {"background": "#BAB0AC", "border": "#BAB0AC", "highlight": {"background": "#ffffff", "border": "#BAB0AC"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "APP_SHELL", "community": 9, "community_name": "sw.js", "source_file": "sw.js", "file_type": "code", "degree": 1}, {"id": "readme", "label": "README.md", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "README.md", "community": 1, "community_name": "Setup", "source_file": "README.md", "file_type": "document", "degree": 1}, {"id": "readme_grocery_tracker", "label": "Grocery Tracker", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 12.6, "font": {"size": 0, "color": "#ffffff"}, "title": "Grocery Tracker", "community": 1, "community_name": "Setup", "source_file": "README.md", "file_type": "document", "degree": 4}, {"id": "readme_setup", "label": "Setup", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 13.9, "font": {"size": 0, "color": "#ffffff"}, "title": "Setup", "community": 1, "community_name": "Setup", "source_file": "README.md", "file_type": "document", "degree": 6}, {"id": "readme_1_create_the_database", "label": "1. Create the database", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "1. Create the database", "community": 1, "community_name": "Setup", "source_file": "README.md", "file_type": "document", "degree": 1}, {"id": "readme_2_connect_the_app", "label": "2. Connect the app", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "2. Connect the app", "community": 1, "community_name": "Setup", "source_file": "README.md", "file_type": "document", "degree": 1}, {"id": "readme_3_notifications_optional_can_be_done_later", "label": "3. Notifications (optional, can be done later)", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "3. Notifications (optional, can be done later)", "community": 1, "community_name": "Setup", "source_file": "README.md", "file_type": "document", "degree": 1}, {"id": "readme_4_put_it_online_with_github_pages", "label": "4. Put it online with GitHub Pages", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "4. Put it online with GitHub Pages", "community": 1, "community_name": "Setup", "source_file": "README.md", "file_type": "document", "degree": 1}, {"id": "readme_5_install_on_the_iphone", "label": "5. Install on the iPhone", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "5. Install on the iPhone", "community": 1, "community_name": "Setup", "source_file": "README.md", "file_type": "document", "degree": 1}, {"id": "readme_updating_the_app", "label": "Updating the app", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "Updating the app", "community": 1, "community_name": "Setup", "source_file": "README.md", "file_type": "document", "degree": 1}, {"id": "readme_trying_it_on_the_pc", "label": "Trying it on the PC", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 10.7, "font": {"size": 0, "color": "#ffffff"}, "title": "Trying it on the PC", "community": 1, "community_name": "Setup", "source_file": "README.md", "file_type": "document", "degree": 1}];
+const RAW_EDGES = [{"from": "app", "to": "app_afterjoin", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_attachpress", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_closeitemmenu", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_compareproducts", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_createhousehold", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_currentsubscription", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_daysuntil", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_db", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_deleteproduct", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_el", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_expirystatus", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_formatdate", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_generatecode", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_isios", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_item_actions", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_joinhousehold", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_leavehousehold", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_loadhouseholds", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_loadproducts", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_location_label", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_locations", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_openhousehold", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_openitemmenu", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_openproduct", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_opensettings", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_relativedays", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_rememberedhousehold", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_rememberhousehold", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_render", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_renderfilters", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_renderitem", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_rendersummary", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_saveproduct", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_schedulereload", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_sharecode", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_showjoin", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_showview", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_start", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_state", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_subscribetochanges", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_toast", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_togglepush", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_unsubscribefromchanges", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_updatepushui", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_urlbase64touint8array", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app", "to": "app_wireup", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_expirystatus", "to": "app_daysuntil", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_renderitem", "to": "app_daysuntil", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_renderitem", "to": "app_expirystatus", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_rendersummary", "to": "app_expirystatus", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_renderitem", "to": "app_formatdate", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_renderitem", "to": "app_relativedays", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_render", "to": "app_compareproducts", "label": "indirect_call", "title": "indirect_call [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_openitemmenu", "to": "app_el", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_opensettings", "to": "app_el", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_renderfilters", "to": "app_el", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_renderitem", "to": "app_el", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_wireup", "to": "app_el", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_loadproducts", "to": "app_render", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_openhousehold", "to": "app_render", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_render", "to": "app_renderfilters", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_render", "to": "app_renderitem", "label": "indirect_call", "title": "indirect_call [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_render", "to": "app_rendersummary", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_wireup", "to": "app_render", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_renderitem", "to": "app_attachpress", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_renderitem", "to": "app_openitemmenu", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_renderitem", "to": "app_openproduct", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_openitemmenu", "to": "app_closeitemmenu", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_wireup", "to": "app_closeitemmenu", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_deleteproduct", "to": "app_toast", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_leavehousehold", "to": "app_toast", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_loadproducts", "to": "app_toast", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_saveproduct", "to": "app_toast", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_sharecode", "to": "app_toast", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_togglepush", "to": "app_toast", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_openhousehold", "to": "app_showview", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_showjoin", "to": "app_showview", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_start", "to": "app_showview", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_wireup", "to": "app_showview", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_deleteproduct", "to": "app_loadproducts", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_openhousehold", "to": "app_loadproducts", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_saveproduct", "to": "app_loadproducts", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_schedulereload", "to": "app_loadproducts", "label": "indirect_call", "title": "indirect_call [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_wireup", "to": "app_loadproducts", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_subscribetochanges", "to": "app_schedulereload", "label": "indirect_call", "title": "indirect_call [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_openhousehold", "to": "app_subscribetochanges", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_subscribetochanges", "to": "app_unsubscribefromchanges", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_openhousehold", "to": "app_unsubscribefromchanges", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_wireup", "to": "app_openproduct", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_wireup", "to": "app_saveproduct", "label": "indirect_call", "title": "indirect_call [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_wireup", "to": "app_deleteproduct", "label": "indirect_call", "title": "indirect_call [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_openhousehold", "to": "app_rememberhousehold", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_start", "to": "app_rememberedhousehold", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_afterjoin", "to": "app_loadhouseholds", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_leavehousehold", "to": "app_loadhouseholds", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_start", "to": "app_loadhouseholds", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_afterjoin", "to": "app_openhousehold", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_leavehousehold", "to": "app_openhousehold", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_openhousehold", "to": "app_showjoin", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_start", "to": "app_openhousehold", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_wireup", "to": "app_openhousehold", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_wireup", "to": "app_showjoin", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_wireup", "to": "app_generatecode", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_createhousehold", "to": "app_afterjoin", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_joinhousehold", "to": "app_afterjoin", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_wireup", "to": "app_joinhousehold", "label": "indirect_call", "title": "indirect_call [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_wireup", "to": "app_createhousehold", "label": "indirect_call", "title": "indirect_call [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_wireup", "to": "app_sharecode", "label": "indirect_call", "title": "indirect_call [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_wireup", "to": "app_leavehousehold", "label": "indirect_call", "title": "indirect_call [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_opensettings", "to": "app_updatepushui", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_wireup", "to": "app_opensettings", "label": "indirect_call", "title": "indirect_call [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_togglepush", "to": "app_urlbase64touint8array", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_togglepush", "to": "app_currentsubscription", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_updatepushui", "to": "app_currentsubscription", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_togglepush", "to": "app_updatepushui", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_wireup", "to": "app_togglepush", "label": "indirect_call", "title": "indirect_call [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_start", "to": "app_wireup", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "supabase_functions_notify_expiring_index", "to": "supabase_functions_notify_expiring_index_adddays", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "supabase_functions_notify_expiring_index", "to": "supabase_functions_notify_expiring_index_buildpayload", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "supabase_functions_notify_expiring_index", "to": "supabase_functions_notify_expiring_index_json", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "supabase_functions_notify_expiring_index", "to": "supabase_functions_notify_expiring_index_shortdate", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "supabase_functions_notify_expiring_index", "to": "supabase_functions_notify_expiring_index_todayintimezone", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "supabase_functions_notify_expiring_index_buildpayload", "to": "supabase_functions_notify_expiring_index_shortdate", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "sw", "to": "sw_app_shell", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme", "to": "readme_grocery_tracker", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme_grocery_tracker", "to": "readme_setup", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme_grocery_tracker", "to": "readme_trying_it_on_the_pc", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme_grocery_tracker", "to": "readme_updating_the_app", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme_setup", "to": "readme_1_create_the_database", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme_setup", "to": "readme_2_connect_the_app", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme_setup", "to": "readme_3_notifications_optional_can_be_done_later", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme_setup", "to": "readme_4_put_it_online_with_github_pages", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme_setup", "to": "readme_5_install_on_the_iphone", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}];
+const LEGEND = [{"cid": 0, "color": "#4E79A7", "label": "wireUp", "count": 11}, {"cid": 1, "color": "#F28E2B", "label": "Setup", "count": 10}, {"cid": 2, "color": "#E15759", "label": "app.js", "count": 9}, {"cid": 3, "color": "#76B7B2", "label": "loadProducts", "count": 8}, {"cid": 4, "color": "#59A14F", "label": "index.ts", "count": 6}, {"cid": 5, "color": "#EDC948", "label": "renderItem", "count": 5}, {"cid": 6, "color": "#B07AA1", "label": "el", "count": 5}, {"cid": 7, "color": "#FF9DA7", "label": "render", "count": 5}, {"cid": 8, "color": "#9C755F", "label": "togglePush", "count": 4}, {"cid": 9, "color": "#BAB0AC", "label": "sw.js", "count": 2}, {"cid": 10, "color": "#4E79A7", "label": "config.js", "count": 1}];
+
+// HTML-escape helper — prevents XSS when injecting graph data into innerHTML
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Build vis datasets
+const nodesDS = new vis.DataSet(RAW_NODES.map(n => ({
+  id: n.id, label: n.label, color: n.color, size: n.size,
+  font: n.font, title: n.title,
+  _community: n.community, _community_name: n.community_name,
+  _source_file: n.source_file, _file_type: n.file_type, _degree: n.degree,
+})));
+
+const edgesDS = new vis.DataSet(RAW_EDGES.map((e, i) => ({
+  id: i, from: e.from, to: e.to,
+  label: '',
+  title: e.title,
+  dashes: e.dashes,
+  width: e.width,
+  color: e.color,
+  arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+})));
+
+const container = document.getElementById('graph');
+const network = new vis.Network(container, { nodes: nodesDS, edges: edgesDS }, {
+  physics: {
+    enabled: true,
+    solver: 'forceAtlas2Based',
+    forceAtlas2Based: {
+      gravitationalConstant: -60,
+      centralGravity: 0.005,
+      springLength: 120,
+      springConstant: 0.08,
+      damping: 0.4,
+      avoidOverlap: 0.8,
+    },
+    stabilization: { iterations: 200, fit: true },
+  },
+  interaction: {
+    hover: true,
+    tooltipDelay: 100,
+    hideEdgesOnDrag: true,
+    navigationButtons: false,
+    keyboard: false,
+  },
+  nodes: { shape: 'dot', borderWidth: 1.5 },
+  edges: { smooth: { type: 'continuous', roundness: 0.2 }, selectionWidth: 3 },
+});
+
+network.once('stabilizationIterationsDone', () => {
+  network.setOptions({ physics: { enabled: false } });
+});
+
+function showInfo(nodeId) {
+  const n = nodesDS.get(nodeId);
+  if (!n) return;
+  const neighborIds = network.getConnectedNodes(nodeId);
+  const neighborItems = neighborIds.map(nid => {
+    const nb = nodesDS.get(nid);
+    const color = nb ? nb.color.background : '#555';
+    return `<span class="neighbor-link" style="border-left-color:${esc(color)}" data-nid="${esc(nid)}">${esc(nb ? nb.label : nid)}</span>`;
+  }).join('');
+  document.getElementById('info-content').innerHTML = `
+    <div class="field"><b>${esc(n.label)}</b></div>
+    <div class="field">Type: ${esc(n._file_type || 'unknown')}</div>
+    <div class="field">Community: ${esc(n._community_name)}</div>
+    <div class="field">Source: ${esc(n._source_file || '-')}</div>
+    <div class="field">Degree: ${n._degree}</div>
+    ${neighborIds.length ? `<div class="field" style="margin-top:8px;color:#aaa;font-size:11px">Neighbors (${neighborIds.length})</div><div id="neighbors-list">${neighborItems}</div>` : ''}
+  `;
+}
+
+function focusNode(nodeId) {
+  network.focus(nodeId, { scale: 1.4, animation: true });
+  network.selectNodes([nodeId]);
+  showInfo(nodeId);
+}
+
+// Neighbor links use a data attribute + one delegated listener rather than an
+// inline onclick. A node id/label sourced from a document or a scraped URL
+// (graphify add) can contain a double-quote; dropping the stringified id
+// unescaped into a quoted onclick both broke every link and allowed a hostile
+// source to inject an event handler into the local report (stored XSS, #1838).
+// esc() on data-nid keeps the value inside the attribute; the listener reads it
+// back verbatim. Bound to document so it survives the innerHTML rebuild that
+// recreates #neighbors-list on each showInfo().
+document.addEventListener('click', e => {
+  const el = e.target.closest('.neighbor-link');
+  if (el && el.dataset.nid !== undefined) focusNode(el.dataset.nid);
+});
+
+// Track hovered node — hover detection is more reliable than click params
+let hoveredNodeId = null;
+network.on('hoverNode', params => {
+  hoveredNodeId = params.node;
+  container.style.cursor = 'pointer';
+});
+network.on('blurNode', () => {
+  hoveredNodeId = null;
+  container.style.cursor = 'default';
+});
+container.addEventListener('click', () => {
+  if (hoveredNodeId !== null) {
+    showInfo(hoveredNodeId);
+    network.selectNodes([hoveredNodeId]);
+  }
+});
+network.on('click', params => {
+  if (params.nodes.length > 0) {
+    showInfo(params.nodes[0]);
+  } else if (hoveredNodeId === null) {
+    document.getElementById('info-content').innerHTML = '<span class="empty">Click a node to inspect it</span>';
+  }
+});
+
+const searchInput = document.getElementById('search');
+const searchResults = document.getElementById('search-results');
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.toLowerCase().trim();
+  searchResults.innerHTML = '';
+  if (!q) { searchResults.style.display = 'none'; return; }
+  const matches = RAW_NODES.filter(n => n.label.toLowerCase().includes(q)).slice(0, 20);
+  if (!matches.length) { searchResults.style.display = 'none'; return; }
+  searchResults.style.display = 'block';
+  matches.forEach(n => {
+    const el = document.createElement('div');
+    el.className = 'search-item';
+    el.textContent = n.label;
+    el.style.borderLeft = `3px solid ${n.color.background}`;
+    el.style.paddingLeft = '8px';
+    el.onclick = () => {
+      network.focus(n.id, { scale: 1.5, animation: true });
+      network.selectNodes([n.id]);
+      showInfo(n.id);
+      searchResults.style.display = 'none';
+      searchInput.value = '';
+    };
+    searchResults.appendChild(el);
+  });
+});
+document.addEventListener('click', e => {
+  if (!searchResults.contains(e.target) && e.target !== searchInput)
+    searchResults.style.display = 'none';
+});
+
+const hiddenCommunities = new Set();
+
+const selectAllCb = document.getElementById('select-all-cb');
+
+function updateSelectAllState() {
+  const total = LEGEND.length;
+  const hidden = hiddenCommunities.size;
+  selectAllCb.checked = hidden === 0;
+  selectAllCb.indeterminate = hidden > 0 && hidden < total;
+}
+
+function toggleAllCommunities(hide) {
+  document.querySelectorAll('.legend-item').forEach(item => {
+    hide ? item.classList.add('dimmed') : item.classList.remove('dimmed');
+  });
+  document.querySelectorAll('.legend-cb').forEach(cb => {
+    cb.checked = !hide;
+  });
+  LEGEND.forEach(c => {
+    if (hide) hiddenCommunities.add(c.cid); else hiddenCommunities.delete(c.cid);
+  });
+  const updates = RAW_NODES.map(n => ({ id: n.id, hidden: hide }));
+  nodesDS.update(updates);
+  updateSelectAllState();
+}
+
+const legendEl = document.getElementById('legend');
+LEGEND.forEach(c => {
+  const item = document.createElement('div');
+  item.className = 'legend-item';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.className = 'legend-cb';
+  cb.checked = true;
+  cb.addEventListener('change', (e) => {
+    e.stopPropagation();
+    if (cb.checked) {
+      hiddenCommunities.delete(c.cid);
+      item.classList.remove('dimmed');
+    } else {
+      hiddenCommunities.add(c.cid);
+      item.classList.add('dimmed');
+    }
+    const updates = RAW_NODES
+      .filter(n => n.community === c.cid)
+      .map(n => ({ id: n.id, hidden: !cb.checked }));
+    nodesDS.update(updates);
+    updateSelectAllState();
+  });
+  item.innerHTML = `<div class="legend-dot" style="background:${c.color}"></div>
+    <span class="legend-label">${c.label}</span>
+    <span class="legend-count">${c.count}</span>`;
+  item.prepend(cb);
+  item.onclick = (e) => {
+    if (e.target === cb) return;
+    cb.checked = !cb.checked;
+    cb.dispatchEvent(new Event('change'));
+  };
+  legendEl.appendChild(item);
+});
+</script>
+<script>
+// Render hyperedges as shaded regions
+const hyperedges = [];
+// afterDrawing passes ctx already transformed to network coordinate space.
+// Draw node positions raw — no manual pan/zoom/DPR math needed.
+network.on('afterDrawing', function(ctx) {
+    hyperedges.forEach(h => {
+        const positions = h.nodes
+            .map(nid => network.getPositions([nid])[nid])
+            .filter(p => p !== undefined);
+        if (positions.length < 2) return;
+        ctx.save();
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = '#6366f1';
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Centroid and expanded hull in network coordinates
+        const cx = positions.reduce((s, p) => s + p.x, 0) / positions.length;
+        const cy = positions.reduce((s, p) => s + p.y, 0) / positions.length;
+        const expanded = positions.map(p => ({
+            x: cx + (p.x - cx) * 1.15,
+            y: cy + (p.y - cy) * 1.15
+        }));
+        ctx.moveTo(expanded[0].x, expanded[0].y);
+        expanded.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 0.4;
+        ctx.stroke();
+        // Label
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = '#4f46e5';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(h.label, cx, cy - 5);
+        ctx.restore();
+    });
+});
+</script>
+</body>
+</html>
