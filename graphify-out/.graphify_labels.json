@@ -1,13 +1,11 @@
 {
   "0": "wireUp",
   "1": "Setup",
-  "2": "app.js",
-  "3": "loadProducts",
+  "2": "openProduct",
+  "3": "loadData",
   "4": "index.ts",
-  "5": "renderItem",
-  "6": "el",
-  "7": "render",
-  "8": "togglePush",
+  "5": "app.js",
+  "6": "render",
   "9": "sw.js",
   "10": "config.js"
 }
