@@ -1,13 +1,15 @@
 {
   "0": "wireUp",
   "1": "Setup",
-  "2": "render",
-  "3": "loadData",
+  "2": "openProduct",
+  "3": "t",
   "4": "index.ts",
   "5": "app.js",
-  "6": "openProduct",
-  "7": "el",
+  "6": "render",
+  "7": "afterJoin",
   "8": "renderItem",
   "9": "sw.js",
-  "10": "config.js"
+  "10": "config.js",
+  "11": "start",
+  "12": "leaveHousehold"
 }
