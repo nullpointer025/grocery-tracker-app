@@ -154,6 +154,45 @@ code { font-size: 1.05rem; font-weight: 600; user-select: all; }
   border-radius: var(--radius);
   padding: 0.75rem 0.9rem;
 }
+/* Holding an item opens our action menu, not iOS text selection / link preview. */
+.item-btn {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.item-btn.is-held { transform: scale(0.98); filter: brightness(1.12); }
+
+.item-menu {
+  position: fixed;
+  z-index: 20;
+  display: flex;
+  align-items: stretch;
+  padding: 0.25rem;
+  border-radius: 14px;
+  background: rgb(36 30 30 / 0.97);
+  color: #fff;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.4);
+  -webkit-user-select: none;
+  user-select: none;
+  animation: item-menu-in 0.12s ease-out;
+}
+.item-menu-btn {
+  background: transparent;
+  color: inherit;
+  font-weight: 500;
+  border-radius: 10px;
+  padding: 0.6rem 1.1rem;
+  white-space: nowrap;
+}
+.item-menu-btn + .item-menu-btn { border-left: 1px solid rgb(255 255 255 / 0.18); border-radius: 0; }
+.item-menu-btn:active, .item-menu-btn:focus-visible { background: rgb(255 255 255 / 0.12); outline: none; }
+@keyframes item-menu-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 .item-main, .item-side { display: grid; gap: 0.15rem; min-width: 0; }
 .item-side { text-align: right; flex: none; max-width: 45%; }
 .item-name { font-weight: 600; overflow-wrap: anywhere; }

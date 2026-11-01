@@ -93,7 +93,10 @@ function renderItem(p) {
   const li = el("li", `item status-${expiryStatus(p)}`);
   const btn = el("button", "item-btn");
   btn.type = "button";
-  btn.addEventListener("click", () => openProduct(p));
+  attachPress(btn, {
+    onTap: () => openProduct(p),
+    onLongPress: () => openItemMenu(p, btn),
+  });
 
   const main = el("span", "item-main");
   main.append(el("span", "item-name", p.name));
@@ -110,6 +113,98 @@ function renderItem(p) {
   btn.append(main, side);
   li.append(btn);
   return li;
+}
+
+// ---------- long press & item actions menu ----------
+
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_MOVE_TOLERANCE = 10;
+
+// Tap runs onTap; holding the finger still runs onLongPress instead (and swallows the click).
+function attachPress(node, { onTap, onLongPress }) {
+  let timer = null;
+  let startX = 0;
+  let startY = 0;
+  let longPressed = false;
+
+  const cancel = () => {
+    clearTimeout(timer);
+    timer = null;
+  };
+  const fire = () => {
+    cancel();
+    longPressed = true;
+    if (navigator.vibrate) navigator.vibrate(10);
+    onLongPress();
+  };
+
+  node.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    longPressed = false;
+    startX = e.clientX;
+    startY = e.clientY;
+    cancel();
+    timer = setTimeout(fire, LONG_PRESS_MS);
+  });
+  // Moving the finger means the user is scrolling, not holding.
+  node.addEventListener("pointermove", (e) => {
+    if (timer && Math.hypot(e.clientX - startX, e.clientY - startY) > LONG_PRESS_MOVE_TOLERANCE) cancel();
+  });
+  node.addEventListener("pointerup", cancel);
+  node.addEventListener("pointercancel", cancel);
+  node.addEventListener("pointerleave", cancel);
+  // Android long press and desktop right click: show our menu instead of the browser's.
+  node.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    if (!longPressed) fire();
+  });
+  node.addEventListener("click", () => {
+    if (longPressed) {
+      longPressed = false;
+      return;
+    }
+    onTap();
+  });
+}
+
+// Actions shown when holding an item. Add new entries here.
+const ITEM_ACTIONS = [
+  { label: "Duplica", run: (p) => openProduct(p, { duplicate: true }) },
+];
+
+function openItemMenu(p, anchor) {
+  const menu = $("#item-menu");
+  menu.replaceChildren(...ITEM_ACTIONS.map((action) => {
+    const btn = el("button", "item-menu-btn", action.label);
+    btn.type = "button";
+    btn.setAttribute("role", "menuitem");
+    btn.addEventListener("click", () => {
+      closeItemMenu();
+      action.run(p);
+    });
+    return btn;
+  }));
+
+  document.querySelectorAll(".item-btn.is-held").forEach((n) => n.classList.remove("is-held"));
+  anchor.classList.add("is-held");
+  menu.hidden = false;
+
+  // Below the item like the iOS menu; above it when there is no room at the bottom.
+  const margin = 8;
+  const rect = anchor.getBoundingClientRect();
+  const { offsetWidth: w, offsetHeight: h } = menu;
+  let top = rect.bottom - 6;
+  if (top + h > window.innerHeight - margin) top = Math.max(margin, rect.top - h + 6);
+  const left = Math.min(Math.max(margin, rect.left + 8), window.innerWidth - w - margin);
+  menu.style.top = `${top}px`;
+  menu.style.left = `${left}px`;
+}
+
+function closeItemMenu() {
+  const menu = $("#item-menu");
+  if (menu.hidden) return;
+  menu.hidden = true;
+  document.querySelectorAll(".item-btn.is-held").forEach((n) => n.classList.remove("is-held"));
 }
 
 function renderFilters() {
@@ -193,16 +288,17 @@ function unsubscribeFromChanges() {
   state.channel = null;
 }
 
-function openProduct(p) {
+// With { duplicate: true } the form is prefilled from p but saving inserts a new product.
+function openProduct(p, { duplicate = false } = {}) {
   const form = $("#product-form");
-  state.editingId = p ? p.id : null;
-  $("#product-title").textContent = p ? "Modifica prodotto" : "Nuovo prodotto";
+  state.editingId = p && !duplicate ? p.id : null;
+  $("#product-title").textContent = duplicate ? "Duplica prodotto" : p ? "Modifica prodotto" : "Nuovo prodotto";
   form.elements.name.value = p ? p.name : "";
   form.elements.location.value = p ? p.location : (state.filter !== "all" ? state.filter : "frigo");
   form.elements.quantity.value = p ? p.quantity : "";
   form.elements.expires_on.value = p && p.expires_on ? p.expires_on : "";
   form.elements.note.value = p ? p.note : "";
-  $("#delete-btn").hidden = !p;
+  $("#delete-btn").hidden = !state.editingId;
   $("#product-dialog").showModal();
 }
 
@@ -496,8 +592,19 @@ function wireUp() {
   $("#leave-btn").addEventListener("click", leaveHousehold);
   $("#push-btn").addEventListener("click", togglePush);
 
+  // Close the item menu on any tap outside it, on scroll, resize or Escape.
+  document.addEventListener("pointerdown", (e) => {
+    if (!e.target.closest("#item-menu")) closeItemMenu();
+  });
+  window.addEventListener("scroll", closeItemMenu, { passive: true });
+  window.addEventListener("resize", closeItemMenu);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeItemMenu();
+  });
+
   // iOS pauses the realtime connection while the app is in the background.
   document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") closeItemMenu();
     if (document.visibilityState === "visible" && state.household) loadProducts();
   });
 }
