@@ -362,3 +362,6 @@ dialog::backdrop { background: rgb(0 0 0 / 0.3); -webkit-backdrop-filter: blur(3
 
 /* Lista spesa rows: just checkbox + name */
 .item-shopping .item-btn { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+
+/* Dialog titles take the initial focus (so no input grabs it and opens the keyboard); no ring needed. */
+dialog h2[tabindex="-1"]:focus { outline: none; }
