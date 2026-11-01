@@ -1,7 +1,7 @@
 {
   "app.js": {
-    "mtime": 1793565148.196599,
-    "ast_hash": "49faed212a87c120b2979f5dea35fd94",
+    "mtime": 1793566674.1767662,
+    "ast_hash": "df64f00e3c5df942a40d7c0632047ec9",
     "semantic_hash": ""
   },
   "config.js": {
@@ -20,38 +20,38 @@
     "semantic_hash": ""
   },
   "supabase/schema.sql": {
-    "mtime": 1793547715.6245155,
-    "ast_hash": "6b68951a6f35a88b6fca5227eac08b0a",
+    "mtime": 1793566684.0662503,
+    "ast_hash": "9b66d61bcb7dc68bfd11839d64ae4b00",
     "semantic_hash": ""
   },
   "sw.js": {
-    "mtime": 1793565368.604692,
-    "ast_hash": "e0890cf60e0f2336bf3693e0e707818f",
+    "mtime": 1793567209.0273242,
+    "ast_hash": "e6b6800ed9d3558cd820281c4361d854",
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1793547715.6155088,
-    "ast_hash": "cdf31946c00c5cc2d4a56af4c6392d0b",
+    "mtime": 1793566692.1511862,
+    "ast_hash": "142b0afc1238d112f6dfd88f2628a784",
     "semantic_hash": ""
   },
   "index.html": {
-    "mtime": 1793565368.5216198,
-    "ast_hash": "a7488c272cbf9d6b8095a732185a7c1b",
+    "mtime": 1793567208.9862864,
+    "ast_hash": "508e392b65cc66908607bbe0c350d493",
     "semantic_hash": ""
   },
   "icons/apple-touch-icon.png": {
-    "mtime": 1792928273.264724,
-    "ast_hash": "678edadc45d17ad87139507259e2988b",
+    "mtime": 1793567201.3492346,
+    "ast_hash": "12124c410c03751f3a0e30fad34fdc44",
     "semantic_hash": ""
   },
   "icons/icon-192.png": {
-    "mtime": 1792928272.6660647,
-    "ast_hash": "576ef95e8cadd12ecfadc894f0f69805",
+    "mtime": 1793567201.3282163,
+    "ast_hash": "a44a43c8af945d7a27f923bcbc02199b",
     "semantic_hash": ""
   },
   "icons/icon-512.png": {
-    "mtime": 1792928273.198517,
-    "ast_hash": "1876fe4c3549e953a5a0eab3c07e7c4b",
+    "mtime": 1793567201.3046963,
+    "ast_hash": "08c2c2e14c49353e268592c710ec023b",
     "semantic_hash": ""
   },
   "supabase/migrations/002_custom_locations.sql": {
@@ -62,6 +62,21 @@
   "supabase/migrations/003_extend_expiry.sql": {
     "mtime": 1793547715.6235151,
     "ast_hash": "b7edbde3b00abdaa9cc94e4b8e36a2ce",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/004_shopping_list.sql": {
+    "mtime": 1793566684.010202,
+    "ast_hash": "09e4fa37c7ce0d9b74a0ed8f0be62587",
+    "semantic_hash": ""
+  },
+  "icons/favicon-32.png": {
+    "mtime": 1793567201.453324,
+    "ast_hash": "4cae898f2777c3e07568ae8936601a9a",
+    "semantic_hash": ""
+  },
+  "icons/icon-maskable-512.png": {
+    "mtime": 1793567201.4443166,
+    "ast_hash": "ed1f6f87d30c85209ab96e0301d019f8",
     "semantic_hash": ""
   }
 }

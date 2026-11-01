@@ -10,6 +10,6 @@
   "8": "renderItem",
   "9": "sw.js",
   "10": "config.js",
-  "11": "start",
-  "12": "leaveHousehold"
+  "11": "setLanguage",
+  "12": "scheduleReload"
 }
