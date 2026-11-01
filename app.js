@@ -3,22 +3,18 @@
 const { SUPABASE_URL, SUPABASE_ANON_KEY, VAPID_PUBLIC_KEY } = window.APP_CONFIG;
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const LOCATIONS = [
-  { id: "frigo", label: "Frigo" },
-  { id: "freezer", label: "Freezer" },
-  { id: "sopra_freezer", label: "Sopra il freezer" },
-  { id: "dispensa", label: "Dispensa" },
-];
-const LOCATION_LABEL = Object.fromEntries(LOCATIONS.map((l) => [l.id, l.label]));
 const CURRENT_HOUSEHOLD_KEY = "grocery.currentHousehold";
+const NO_LOCATION = "none"; // filter value for products without a category
+const NEW_LOCATION = "__new__"; // select value that opens the "new category" field
 
 const $ = (sel) => document.querySelector(sel);
 const state = {
   user: null,
   households: [],
   household: null,
+  locations: [], // the household's own categories, in display order
   products: [],
-  filter: "all",
+  filter: "all", // "all", NO_LOCATION or a location id
   search: "",
   editingId: null,
   channel: null,
@@ -75,10 +71,25 @@ function el(tag, className, text) {
   return node;
 }
 
+function locationOf(p) {
+  return state.locations.find((l) => l.id === p.location_id) || null;
+}
+
+function matchesFilter(p, filter) {
+  if (filter === "all") return true;
+  if (filter === NO_LOCATION) return !locationOf(p);
+  return p.location_id === filter;
+}
+
 function render() {
+  // The selected category may have been deleted (here or on another phone).
+  const filterExists = state.filter === "all" || state.filter === NO_LOCATION
+    || state.locations.some((l) => l.id === state.filter);
+  if (!filterExists) state.filter = "all";
+
   const query = state.search.trim().toLowerCase();
   const visible = state.products
-    .filter((p) => state.filter === "all" || p.location === state.filter)
+    .filter((p) => matchesFilter(p, state.filter))
     .filter((p) => !query || p.name.toLowerCase().includes(query))
     .sort(compareProducts);
 
@@ -93,14 +104,15 @@ function renderItem(p) {
   const li = el("li", `item status-${expiryStatus(p)}`);
   const btn = el("button", "item-btn");
   btn.type = "button";
-  attachPress(btn, {
+  attachGestures(btn, {
     onTap: () => openProduct(p),
     onLongPress: () => openItemMenu(p, btn),
+    onSwipeDelete: () => deleteProductBySwipe(p),
   });
 
   const main = el("span", "item-main");
   main.append(el("span", "item-name", p.name));
-  const meta = [LOCATION_LABEL[p.location], p.quantity].filter(Boolean).join(" · ");
+  const meta = [locationOf(p)?.name, p.quantity].filter(Boolean).join(" · ");
   main.append(el("span", "item-meta", meta));
 
   const side = el("span", "item-side");
@@ -110,57 +122,130 @@ function renderItem(p) {
   }
   if (p.note) side.append(el("span", "item-note", p.note));
 
+  // Red "Elimina" strip uncovered when the item is swiped left.
+  const swipeBg = el("span", "item-swipe-bg");
+  swipeBg.setAttribute("aria-hidden", "true");
+  swipeBg.append(el("span", "item-swipe-label", "Elimina"));
+
   btn.append(main, side);
-  li.append(btn);
+  li.append(swipeBg, btn);
   return li;
 }
 
-// ---------- long press & item actions menu ----------
+// ---------- gestures: tap, long press, swipe left to delete ----------
 
 const LONG_PRESS_MS = 500;
-const LONG_PRESS_MOVE_TOLERANCE = 10;
+const MOVE_TOLERANCE = 10;
+const SWIPE_DELETE_RATIO = 0.4; // release past 40% of the width to delete
 
-// Tap runs onTap; holding the finger still runs onLongPress instead (and swallows the click).
-function attachPress(node, { onTap, onLongPress }) {
+// One handler per item so the three gestures never fight each other:
+// - tap → onTap
+// - hold still → onLongPress
+// - drag left → reveal delete; release past the threshold → onSwipeDelete
+function attachGestures(node, { onTap, onLongPress, onSwipeDelete }) {
+  const li = () => node.parentElement;
   let timer = null;
   let startX = 0;
   let startY = 0;
-  let longPressed = false;
+  let pointerId = null;
+  let swiping = false;
+  let offset = 0;
+  let suppressClick = false;
 
-  const cancel = () => {
+  const cancelTimer = () => {
     clearTimeout(timer);
     timer = null;
   };
-  const fire = () => {
-    cancel();
-    longPressed = true;
+  const fireLongPress = () => {
+    cancelTimer();
+    suppressClick = true;
     if (navigator.vibrate) navigator.vibrate(10);
     onLongPress();
+  };
+  const setOffset = (x, animate) => {
+    offset = x;
+    node.style.transition = animate ? "transform 0.2s ease" : "none";
+    node.style.transform = x ? `translateX(${x}px)` : "";
+    const armed = -x > node.offsetWidth * SWIPE_DELETE_RATIO;
+    li()?.classList.toggle("is-swiping", x < 0);
+    li()?.classList.toggle("is-armed", armed);
+  };
+  const endSwipe = () => {
+    if (!swiping) return;
+    swiping = false;
+    suppressClick = true;
+    if (-offset > node.offsetWidth * SWIPE_DELETE_RATIO) {
+      if (navigator.vibrate) navigator.vibrate(15);
+      setOffset(-node.offsetWidth - 20, true);
+      // transitionend can be skipped (tab in background, reduced motion), so also use a timeout.
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        onSwipeDelete();
+      };
+      node.addEventListener("transitionend", finish, { once: true });
+      setTimeout(finish, 250);
+    } else {
+      setOffset(0, true);
+    }
   };
 
   node.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
-    longPressed = false;
+    suppressClick = false;
+    swiping = false;
+    pointerId = e.pointerId;
     startX = e.clientX;
     startY = e.clientY;
-    cancel();
-    timer = setTimeout(fire, LONG_PRESS_MS);
+    cancelTimer();
+    timer = setTimeout(fireLongPress, LONG_PRESS_MS);
   });
-  // Moving the finger means the user is scrolling, not holding.
+
   node.addEventListener("pointermove", (e) => {
-    if (timer && Math.hypot(e.clientX - startX, e.clientY - startY) > LONG_PRESS_MOVE_TOLERANCE) cancel();
+    if (e.pointerId !== pointerId) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (!swiping) {
+      if (Math.hypot(dx, dy) <= MOVE_TOLERANCE) return;
+      cancelTimer();
+      // Mostly horizontal and to the left: it's a swipe. Otherwise let the page scroll.
+      if (dx < 0 && Math.abs(dx) > Math.abs(dy) && !suppressClick) {
+        swiping = true;
+        closeItemMenu();
+        node.setPointerCapture(e.pointerId);
+      } else {
+        return;
+      }
+    }
+    setOffset(Math.min(0, dx), false);
   });
-  node.addEventListener("pointerup", cancel);
-  node.addEventListener("pointercancel", cancel);
-  node.addEventListener("pointerleave", cancel);
+
+  node.addEventListener("pointerup", () => {
+    cancelTimer();
+    pointerId = null;
+    endSwipe();
+  });
+  node.addEventListener("pointercancel", () => {
+    cancelTimer();
+    pointerId = null;
+    if (swiping) {
+      swiping = false;
+      setOffset(0, true);
+    }
+  });
+  node.addEventListener("pointerleave", () => {
+    if (!swiping) cancelTimer();
+  });
+
   // Android long press and desktop right click: show our menu instead of the browser's.
   node.addEventListener("contextmenu", (e) => {
     e.preventDefault();
-    if (!longPressed) fire();
+    if (!suppressClick && !swiping) fireLongPress();
   });
   node.addEventListener("click", () => {
-    if (longPressed) {
-      longPressed = false;
+    if (suppressClick) {
+      suppressClick = false;
       return;
     }
     onTap();
@@ -208,12 +293,16 @@ function closeItemMenu() {
 }
 
 function renderFilters() {
-  const options = [{ id: "all", label: "Tutti" }, ...LOCATIONS];
+  const count = (id) => state.products.filter((p) => matchesFilter(p, id)).length;
+  const options = [
+    { id: "all", label: "Tutti" },
+    ...state.locations.map((l) => ({ id: l.id, label: l.name })),
+  ];
+  // Only show "Senza categoria" when something is actually in it.
+  if (count(NO_LOCATION) > 0) options.push({ id: NO_LOCATION, label: "Senza categoria" });
+
   const chips = options.map((opt) => {
-    const count = opt.id === "all"
-      ? state.products.length
-      : state.products.filter((p) => p.location === opt.id).length;
-    const chip = el("button", "chip", `${opt.label} ${count}`);
+    const chip = el("button", "chip", `${opt.label} ${count(opt.id)}`);
     chip.type = "button";
     chip.setAttribute("aria-pressed", String(state.filter === opt.id));
     chip.addEventListener("click", () => {
@@ -222,7 +311,12 @@ function renderFilters() {
     });
     return chip;
   });
-  $("#filters").replaceChildren(...chips);
+
+  const add = el("button", "chip chip-add", state.locations.length ? "+" : "+ Categoria");
+  add.type = "button";
+  add.setAttribute("aria-label", "Gestisci categorie");
+  add.addEventListener("click", openLocations);
+  $("#filters").replaceChildren(...chips, add);
 }
 
 function renderSummary() {
@@ -238,12 +332,22 @@ function renderSummary() {
 }
 
 let toastTimer;
-function toast(message) {
+// Optional action renders a button inside the toast, e.g. { label: "Annulla", run }.
+function toast(message, action) {
   const node = $("#toast");
-  node.textContent = message;
+  node.replaceChildren(el("span", null, message));
+  if (action) {
+    const btn = el("button", "toast-action", action.label);
+    btn.type = "button";
+    btn.addEventListener("click", () => {
+      node.hidden = true;
+      action.run();
+    });
+    node.append(btn);
+  }
   node.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (node.hidden = true), 3500);
+  toastTimer = setTimeout(() => (node.hidden = true), action ? 6000 : 3500);
 }
 
 function showView(id) {
@@ -252,34 +356,53 @@ function showView(id) {
 
 // ---------- products ----------
 
-async function loadProducts() {
+// Loads the household's categories and products together, so they always match.
+async function loadData() {
   if (!state.household) return;
-  const { data, error } = await db.from("products").select("*").eq("household_id", state.household.id);
+  const householdId = state.household.id;
+  const [locations, products] = await Promise.all([
+    db.from("locations").select("*").eq("household_id", householdId)
+      .order("position").order("created_at"),
+    db.from("products").select("*").eq("household_id", householdId),
+  ]);
+  const error = locations.error || products.error;
   if (error) {
     toast(`Errore nel caricamento: ${error.message}`);
     return;
   }
-  state.products = data;
+  if (state.household?.id !== householdId) return; // switched group meanwhile
+  state.locations = locations.data;
+  state.products = products.data;
   render();
+  if ($("#locations-dialog").open && !isUserBusy()) renderLocations();
+}
+
+// A redraw would drop an item mid-swipe or overwrite a category name being typed.
+function isUserBusy() {
+  return Boolean(document.querySelector(".item.is-swiping"))
+    || Boolean(document.activeElement?.matches?.("#locations-list input"));
 }
 
 let reloadTimer;
 function scheduleReload() {
   clearTimeout(reloadTimer);
-  reloadTimer = setTimeout(loadProducts, 300);
+  reloadTimer = setTimeout(() => (isUserBusy() ? scheduleReload() : loadData()), 300);
 }
 
 // Changes made on another phone show up here without refreshing.
 function subscribeToChanges() {
   unsubscribeFromChanges();
-  state.channel = db
-    .channel(`products-${state.household.id}`)
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "products", filter: `household_id=eq.${state.household.id}` },
-      scheduleReload,
-    )
-    .subscribe();
+  const filter = `household_id=eq.${state.household.id}`;
+  let channel = db.channel(`household-${state.household.id}`);
+  for (const table of ["products", "locations"]) {
+    channel = channel
+      .on("postgres_changes", { event: "INSERT", schema: "public", table, filter }, scheduleReload)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table, filter }, scheduleReload)
+      // Supabase can't filter DELETE events (they only carry the id), so listen to all of them;
+      // the reload only fetches this household's rows anyway.
+      .on("postgres_changes", { event: "DELETE", schema: "public", table }, scheduleReload);
+  }
+  state.channel = channel.subscribe();
 }
 
 function unsubscribeFromChanges() {
@@ -294,7 +417,13 @@ function openProduct(p, { duplicate = false } = {}) {
   state.editingId = p && !duplicate ? p.id : null;
   $("#product-title").textContent = duplicate ? "Duplica prodotto" : p ? "Modifica prodotto" : "Nuovo prodotto";
   form.elements.name.value = p ? p.name : "";
-  form.elements.location.value = p ? p.location : (state.filter !== "all" ? state.filter : "frigo");
+  // New products go into the category being viewed, else the first one.
+  const fallback = state.locations.some((l) => l.id === state.filter)
+    ? state.filter
+    : state.locations[0]?.id || "";
+  fillLocationSelect(p ? (locationOf(p)?.id || "") : fallback);
+  hideNewLocationRow();
+  showMsg("#product-msg", "");
   form.elements.quantity.value = p ? p.quantity : "";
   form.elements.expires_on.value = p && p.expires_on ? p.expires_on : "";
   form.elements.note.value = p ? p.note : "";
@@ -305,9 +434,20 @@ function openProduct(p, { duplicate = false } = {}) {
 async function saveProduct(event) {
   event.preventDefault();
   const form = event.target;
+  const select = form.elements.location;
+  // "+ Nuova categoria…" picked and a name typed but "Aggiungi" not tapped: create it now.
+  if (select.value === NEW_LOCATION) {
+    if ($("#new-location-name").value.trim()) {
+      await addLocationFromProductForm();
+      if (select.value === NEW_LOCATION) return; // creation failed, message is shown
+    } else {
+      select.value = select.dataset.previous || "";
+      hideNewLocationRow();
+    }
+  }
   const row = {
     name: form.elements.name.value.trim(),
-    location: form.elements.location.value,
+    location_id: select.value || null,
     quantity: form.elements.quantity.value.trim(),
     expires_on: form.elements.expires_on.value || null,
     note: form.elements.note.value.trim(),
@@ -321,11 +461,11 @@ async function saveProduct(event) {
   $("#save-btn").disabled = false;
 
   if (error) {
-    toast(`Errore nel salvataggio: ${error.message}`);
+    showMsg("#product-msg", `Errore nel salvataggio: ${error.message}`);
     return;
   }
   $("#product-dialog").close();
-  loadProducts();
+  loadData();
 }
 
 async function deleteProduct() {
@@ -337,7 +477,176 @@ async function deleteProduct() {
     return;
   }
   $("#product-dialog").close();
-  loadProducts();
+  loadData();
+}
+
+// Swipe already is the confirmation, so no dialog; the toast offers undo instead.
+async function deleteProductBySwipe(p) {
+  state.products = state.products.filter((x) => x.id !== p.id);
+  render();
+  const { error } = await db.from("products").delete().eq("id", p.id);
+  if (error) {
+    toast(`Errore nell'eliminazione: ${error.message}`);
+    loadData();
+    return;
+  }
+  toast(`"${p.name}" eliminato`, { label: "Annulla", run: () => restoreProduct(p) });
+}
+
+async function restoreProduct(p) {
+  const { id, household_id, name, location_id, quantity, expires_on, note, created_at } = p;
+  // If its category was deleted meanwhile, bring it back without one.
+  const stillThere = state.locations.some((l) => l.id === location_id);
+  const { error } = await db.from("products").insert({
+    id, household_id, name, location_id: stillThere ? location_id : null, quantity, expires_on, note, created_at,
+  });
+  if (error) toast(`Errore nel ripristino: ${error.message}`);
+  loadData();
+}
+
+// ---------- categories (locations) ----------
+
+function showMsg(selector, text) {
+  const node = $(selector);
+  node.textContent = text;
+  node.hidden = !text;
+}
+
+function locationErrorMessage(error) {
+  return error.code === "23505" ? "Esiste già una categoria con questo nome." : `Errore: ${error.message}`;
+}
+
+// Returns the new category, or null (with the reason shown in msgSelector).
+async function createLocation(rawName, msgSelector) {
+  const name = rawName.trim();
+  if (!name) return null;
+  const position = Math.max(-1, ...state.locations.map((l) => l.position)) + 1;
+  const { data, error } = await db
+    .from("locations")
+    .insert({ household_id: state.household.id, name, position })
+    .select()
+    .single();
+  if (error) {
+    showMsg(msgSelector, locationErrorMessage(error));
+    return null;
+  }
+  showMsg(msgSelector, "");
+  state.locations.push(data);
+  render();
+  return data;
+}
+
+async function renameLocation(loc, rawName, input) {
+  const name = rawName.trim();
+  if (!name || name === loc.name) {
+    input.value = loc.name;
+    return;
+  }
+  const { error } = await db.from("locations").update({ name }).eq("id", loc.id);
+  if (error) {
+    showMsg("#locations-msg", locationErrorMessage(error));
+    input.value = loc.name;
+    return;
+  }
+  showMsg("#locations-msg", "");
+  loc.name = name;
+  render();
+}
+
+async function deleteLocation(loc) {
+  const used = state.products.filter((p) => p.location_id === loc.id).length;
+  const detail = used
+    ? `\n${used} prodott${used === 1 ? "o resterà" : "i resteranno"} senza categoria.`
+    : "";
+  if (!confirm(`Eliminare la categoria "${loc.name}"?${detail}`)) return;
+  const { error } = await db.from("locations").delete().eq("id", loc.id);
+  if (error) {
+    showMsg("#locations-msg", `Errore: ${error.message}`);
+    return;
+  }
+  showMsg("#locations-msg", "");
+  await loadData();
+}
+
+function renderLocations() {
+  const rows = state.locations.map((loc) => {
+    const li = el("li", "location-row");
+    const input = el("input");
+    input.value = loc.name;
+    input.maxLength = 40;
+    input.setAttribute("aria-label", `Nome categoria ${loc.name}`);
+    input.addEventListener("change", () => renameLocation(loc, input.value, input));
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") input.blur();
+    });
+    const count = state.products.filter((p) => p.location_id === loc.id).length;
+    const del = el("button", "danger small", "Elimina");
+    del.type = "button";
+    del.setAttribute("aria-label", `Elimina ${loc.name} (${count} prodotti)`);
+    del.addEventListener("click", () => deleteLocation(loc));
+    li.append(input, el("span", "muted location-count", String(count)), del);
+    return li;
+  });
+  $("#locations-list").replaceChildren(...rows);
+  $("#locations-empty").hidden = rows.length > 0;
+}
+
+function openLocations() {
+  if ($("#settings-dialog").open) $("#settings-dialog").close();
+  showMsg("#locations-msg", "");
+  $("#location-form").reset();
+  renderLocations();
+  $("#locations-dialog").showModal();
+}
+
+async function addLocationFromDialog(event) {
+  event.preventDefault();
+  const input = event.target.elements.name;
+  if (await createLocation(input.value, "#locations-msg")) {
+    input.value = "";
+    renderLocations();
+    input.focus();
+  }
+}
+
+// Product form: categories + "no category" + "+ Nuova categoria…".
+function fillLocationSelect(selectedId) {
+  const select = $("#product-form").elements.location;
+  const option = (value, label) => {
+    const node = el("option", null, label);
+    node.value = value;
+    return node;
+  };
+  select.replaceChildren(
+    ...state.locations.map((l) => option(l.id, l.name)),
+    option("", "Nessuna categoria"),
+    option(NEW_LOCATION, "+ Nuova categoria…"),
+  );
+  select.value = selectedId;
+  select.dataset.previous = selectedId;
+}
+
+function hideNewLocationRow() {
+  $("#new-location-row").hidden = true;
+  $("#new-location-name").value = "";
+}
+
+function onLocationSelectChange(event) {
+  const select = event.target;
+  if (select.value === NEW_LOCATION) {
+    $("#new-location-row").hidden = false;
+    $("#new-location-name").focus();
+  } else {
+    select.dataset.previous = select.value;
+    hideNewLocationRow();
+  }
+}
+
+async function addLocationFromProductForm() {
+  const created = await createLocation($("#new-location-name").value, "#product-msg");
+  if (!created) return;
+  fillLocationSelect(created.id);
+  hideNewLocationRow();
 }
 
 // ---------- households (invite codes) ----------
@@ -371,6 +680,7 @@ async function loadHouseholds() {
 async function openHousehold(id) {
   state.household = state.households.find((h) => h.id === id) || state.households[0] || null;
   state.products = [];
+  state.locations = [];
   state.filter = "all";
   if (!state.household) {
     unsubscribeFromChanges();
@@ -380,7 +690,7 @@ async function openHousehold(id) {
   rememberHousehold(state.household.id);
   showView("app-view");
   render();
-  await loadProducts();
+  await loadData();
   subscribeToChanges();
 }
 
@@ -555,12 +865,19 @@ async function togglePush() {
 // ---------- startup ----------
 
 function wireUp() {
-  const select = $("#product-form").elements.location;
-  select.replaceChildren(...LOCATIONS.map((l) => {
-    const option = el("option", null, l.label);
-    option.value = l.id;
-    return option;
-  }));
+  $("#product-form").elements.location.addEventListener("change", onLocationSelectChange);
+  $("#new-location-add").addEventListener("click", addLocationFromProductForm);
+  $("#new-location-name").addEventListener("keydown", (e) => {
+    // Enter adds the category instead of submitting the whole product form.
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addLocationFromProductForm();
+    }
+  });
+
+  $("#manage-locations").addEventListener("click", openLocations);
+  $("#location-form").addEventListener("submit", addLocationFromDialog);
+  $("#locations-close").addEventListener("click", () => $("#locations-dialog").close());
 
   $("#join-form").addEventListener("submit", joinHousehold);
   $("#create-form").addEventListener("submit", createHousehold);
@@ -605,7 +922,7 @@ function wireUp() {
   // iOS pauses the realtime connection while the app is in the background.
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible") closeItemMenu();
-    if (document.visibilityState === "visible" && state.household) loadProducts();
+    if (document.visibilityState === "visible" && state.household) loadData();
   });
 }
 

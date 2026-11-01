@@ -106,11 +106,34 @@ create policy "members see each other" on public.household_members
 create policy "members can leave" on public.household_members
   for delete to authenticated using (user_id = auth.uid());
 
+-- Categories (Frigo, Freezer, …): each household creates its own.
+create table public.locations (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households (id) on delete cascade,
+  name text not null check (length(trim(name)) > 0 and length(name) <= 40),
+  position integer not null default 0,
+  created_at timestamptz not null default now()
+);
+create unique index locations_household_name_idx on public.locations (household_id, lower(trim(name)));
+
+alter table public.locations enable row level security;
+create policy "members read locations" on public.locations
+  for select to authenticated using (public.is_household_member(household_id));
+create policy "members add locations" on public.locations
+  for insert to authenticated with check (public.is_household_member(household_id));
+create policy "members edit locations" on public.locations
+  for update to authenticated
+  using (public.is_household_member(household_id))
+  with check (public.is_household_member(household_id));
+create policy "members delete locations" on public.locations
+  for delete to authenticated using (public.is_household_member(household_id));
+
 create table public.products (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households (id) on delete cascade,
   name text not null check (length(trim(name)) > 0),
-  location text not null check (location in ('frigo', 'freezer', 'sopra_freezer', 'dispensa')),
+  -- Deleting a category keeps its products; they show up as "Senza categoria".
+  location_id uuid references public.locations (id) on delete set null,
   quantity text not null default '',
   expires_on date,
   note text not null default '',
@@ -119,6 +142,7 @@ create table public.products (
   updated_by uuid default auth.uid()
 );
 create index products_household_expires_idx on public.products (household_id, expires_on);
+create index products_location_idx on public.products (location_id);
 
 create or replace function public.touch_product()
 returns trigger
@@ -148,6 +172,7 @@ create policy "members delete products" on public.products
 
 -- Live updates between phones.
 alter publication supabase_realtime add table public.products;
+alter publication supabase_realtime add table public.locations;
 
 -- One row per phone that turned on notifications.
 create table public.push_subscriptions (

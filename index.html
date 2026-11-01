@@ -69,9 +69,15 @@
       <label>Nome
         <input name="name" required maxlength="80" autocomplete="off">
       </label>
-      <label>Dove
+      <label>Categoria
         <select name="location"></select>
       </label>
+      <!-- Shown when "+ Nuova categoria…" is picked in the select above -->
+      <div id="new-location-row" class="row" hidden>
+        <input id="new-location-name" maxlength="40" placeholder="es. Frigo" autocomplete="off" aria-label="Nome nuova categoria">
+        <button type="button" id="new-location-add">Aggiungi</button>
+      </div>
+      <p id="product-msg" class="msg error" role="status" hidden></p>
       <label>Quantità
         <input name="quantity" maxlength="40" placeholder="es. 2 conf" autocomplete="off">
       </label>
@@ -103,6 +109,10 @@
         <button type="button" id="share-code" class="secondary">Condividi codice</button>
         <button type="button" id="other-household" class="secondary">Altro gruppo</button>
       </div>
+      <h3>Categorie</h3>
+      <div class="actions">
+        <button type="button" id="manage-locations" class="secondary">Gestisci categorie</button>
+      </div>
       <h3>Notifiche</h3>
       <p id="push-status"></p>
       <button type="button" id="push-btn" hidden>Attiva notifiche</button>
@@ -110,6 +120,24 @@
         <button type="button" id="leave-btn" class="danger">Esci dal gruppo</button>
         <span class="spacer"></span>
         <button type="button" id="settings-close">Chiudi</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="locations-dialog">
+    <div class="stack">
+      <h2>Categorie</h2>
+      <p class="muted">Crea i posti dove tieni i prodotti, es. Frigo, Freezer, Dispensa.</p>
+      <ul id="locations-list" class="locations-list"></ul>
+      <p id="locations-empty" class="muted" hidden>Nessuna categoria.</p>
+      <form id="location-form" class="row">
+        <input name="name" maxlength="40" placeholder="Nuova categoria" autocomplete="off" required aria-label="Nome nuova categoria">
+        <button type="submit">Aggiungi</button>
+      </form>
+      <p id="locations-msg" class="msg error" role="status" hidden></p>
+      <div class="actions">
+        <span class="spacer"></span>
+        <button type="button" id="locations-close">Chiudi</button>
       </div>
     </div>
   </dialog>

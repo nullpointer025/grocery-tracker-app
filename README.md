@@ -1,7 +1,8 @@
 # Grocery Tracker
 
-A small web app (PWA) that does what the DISPENSA spreadsheet does: it lists everything in the
-Frigo, Freezer, Sopra il freezer and Dispensa, sorted by expiry date, with the same colors:
+A small web app (PWA) that does what the DISPENSA spreadsheet does: it lists everything you keep
+at home, grouped by categories you create yourself (for example Frigo, Freezer, Dispensa), sorted
+by expiry date, with the same colors:
 
 | Color | Meaning |
 |---|---|
@@ -78,6 +79,14 @@ Repeat on each phone, joining with the same invite code.
 
 After changing any app file, bump `CACHE` in `sw.js` (for example `grocery-tracker-v2`) and push.
 Phones pick up the new version the next time the app is opened.
+
+### Database updates
+
+If your database was created with an older `schema.sql`, run the files in `supabase/migrations/`
+that you haven't run yet, in order, in **SQL Editor** — before pushing the app version that needs them.
+
+- `002_custom_locations.sql` – categories are created by each group instead of the fixed
+  Frigo / Freezer / Sopra il freezer / Dispensa. Existing groups keep the ones they already use.
 
 ## Trying it on the PC
 

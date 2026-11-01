@@ -1,5 +1,5 @@
 // Bump the version whenever the app files change so phones pick up the update.
-const CACHE = "grocery-tracker-v2";
+const CACHE = "grocery-tracker-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -28,8 +28,11 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
+  // "no-cache" revalidates with the server instead of reusing the browser's HTTP cache, so a new
+  // app.js isn't hidden behind an old cached copy. (Page navigations can't take fetch options.)
+  const request = event.request.mode === "navigate" ? event.request : new Request(event.request, { cache: "no-cache" });
   event.respondWith(
-    fetch(event.request)
+    fetch(request)
       .then((response) => {
         const copy = response.clone();
         caches.open(CACHE).then((cache) => cache.put(event.request, copy));
