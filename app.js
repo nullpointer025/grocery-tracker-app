@@ -106,7 +106,7 @@ function renderItem(p) {
   btn.type = "button";
   attachGestures(btn, {
     onTap: () => openProduct(p),
-    onLongPress: () => openItemMenu(p, btn),
+    onLongPress: () => openItemMenu(p, btn.closest(".item-card") || btn),
     onSwipeDelete: () => deleteProductBySwipe(p),
   });
 
@@ -127,9 +127,67 @@ function renderItem(p) {
   swipeBg.setAttribute("aria-hidden", "true");
   swipeBg.append(el("span", "item-swipe-label", "Elimina"));
 
+  // The card holds the checkbox and the tappable button (a checkbox can't live inside a button)
+  // and is what slides when swiping.
+  const card = el("div", "item-card");
   btn.append(main, side);
-  li.append(swipeBg, btn);
+  card.append(renderExtendCheck(p), btn);
+  li.append(swipeBg, card);
   return li;
+}
+
+// ---------- +5 months on the expiry date ----------
+
+const EXTEND_MONTHS = 5;
+
+// Same day N months later; clamped to the month's last day (31/01 + 1 month = 28/02 or 29/02).
+function addMonths(iso, months) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(y, m - 1 + months + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m - 1 + months, Math.min(d, lastDay))).toISOString().slice(0, 10);
+}
+
+function renderExtendCheck(p) {
+  const label = el("label", "item-check");
+  const box = el("input");
+  box.type = "checkbox";
+  box.checked = Boolean(p.extended_from);
+  box.disabled = !p.expires_on;
+  box.setAttribute("aria-label", `${p.name}: +${EXTEND_MONTHS} mesi alla scadenza`);
+  box.addEventListener("change", () => toggleExtended(p, box.checked));
+  label.title = p.expires_on
+    ? `+${EXTEND_MONTHS} mesi alla scadenza`
+    : "Imposta una scadenza per usare +5 mesi";
+  label.append(box, el("span", "item-check-text", `+${EXTEND_MONTHS}m`));
+  return label;
+}
+
+// Product form: the checkbox needs a date, and the hint shows the resulting expiry.
+function updateExtendHint() {
+  const form = $("#product-form");
+  const date = form.elements.expires_on.value;
+  const box = form.elements.extend;
+  box.disabled = !date;
+  const hint = $("#extend-hint");
+  hint.hidden = !(date && box.checked);
+  if (!hint.hidden) hint.textContent = `Nuova scadenza: ${formatDate(addMonths(date, EXTEND_MONTHS))}`;
+}
+
+// Checked: remember the original date and push it 5 months later. Unchecked: put it back exactly.
+async function toggleExtended(p, checked) {
+  if (!p.expires_on || checked === Boolean(p.extended_from)) return;
+  const patch = checked
+    ? { extended_from: p.expires_on, expires_on: addMonths(p.expires_on, EXTEND_MONTHS) }
+    : { expires_on: p.extended_from, extended_from: null };
+  const before = { expires_on: p.expires_on, extended_from: p.extended_from };
+  Object.assign(p, patch);
+  render();
+  const { error } = await db.from("products").update(patch).eq("id", p.id);
+  if (error) {
+    Object.assign(p, before);
+    render();
+    toast(`Errore: ${error.message}`);
+  }
 }
 
 // ---------- gestures: tap, long press, swipe left to delete ----------
@@ -143,7 +201,8 @@ const SWIPE_DELETE_RATIO = 0.4; // release past 40% of the width to delete
 // - hold still → onLongPress
 // - drag left → reveal delete; release past the threshold → onSwipeDelete
 function attachGestures(node, { onTap, onLongPress, onSwipeDelete }) {
-  const li = () => node.parentElement;
+  const card = () => node.closest(".item-card") || node; // what slides
+  const li = () => card().parentElement;
   let timer = null;
   let startX = 0;
   let startY = 0;
@@ -164,9 +223,10 @@ function attachGestures(node, { onTap, onLongPress, onSwipeDelete }) {
   };
   const setOffset = (x, animate) => {
     offset = x;
-    node.style.transition = animate ? "transform 0.2s ease" : "none";
-    node.style.transform = x ? `translateX(${x}px)` : "";
-    const armed = -x > node.offsetWidth * SWIPE_DELETE_RATIO;
+    const target = card();
+    target.style.transition = animate ? "transform 0.2s ease" : "none";
+    target.style.transform = x ? `translateX(${x}px)` : "";
+    const armed = -x > target.offsetWidth * SWIPE_DELETE_RATIO;
     li()?.classList.toggle("is-swiping", x < 0);
     li()?.classList.toggle("is-armed", armed);
   };
@@ -174,9 +234,10 @@ function attachGestures(node, { onTap, onLongPress, onSwipeDelete }) {
     if (!swiping) return;
     swiping = false;
     suppressClick = true;
-    if (-offset > node.offsetWidth * SWIPE_DELETE_RATIO) {
+    const width = card().offsetWidth;
+    if (-offset > width * SWIPE_DELETE_RATIO) {
       if (navigator.vibrate) navigator.vibrate(15);
-      setOffset(-node.offsetWidth - 20, true);
+      setOffset(-width - 20, true);
       // transitionend can be skipped (tab in background, reduced motion), so also use a timeout.
       let done = false;
       const finish = () => {
@@ -184,7 +245,7 @@ function attachGestures(node, { onTap, onLongPress, onSwipeDelete }) {
         done = true;
         onSwipeDelete();
       };
-      node.addEventListener("transitionend", finish, { once: true });
+      card().addEventListener("transitionend", finish, { once: true });
       setTimeout(finish, 250);
     } else {
       setOffset(0, true);
@@ -270,7 +331,7 @@ function openItemMenu(p, anchor) {
     return btn;
   }));
 
-  document.querySelectorAll(".item-btn.is-held").forEach((n) => n.classList.remove("is-held"));
+  document.querySelectorAll(".item-card.is-held").forEach((n) => n.classList.remove("is-held"));
   anchor.classList.add("is-held");
   menu.hidden = false;
 
@@ -289,7 +350,7 @@ function closeItemMenu() {
   const menu = $("#item-menu");
   if (menu.hidden) return;
   menu.hidden = true;
-  document.querySelectorAll(".item-btn.is-held").forEach((n) => n.classList.remove("is-held"));
+  document.querySelectorAll(".item-card.is-held").forEach((n) => n.classList.remove("is-held"));
 }
 
 function renderFilters() {
@@ -425,7 +486,10 @@ function openProduct(p, { duplicate = false } = {}) {
   hideNewLocationRow();
   showMsg("#product-msg", "");
   form.elements.quantity.value = p ? p.quantity : "";
-  form.elements.expires_on.value = p && p.expires_on ? p.expires_on : "";
+  // The date field always holds the original date; the checkbox adds the 5 months on save.
+  form.elements.expires_on.value = p ? (p.extended_from || p.expires_on || "") : "";
+  form.elements.extend.checked = Boolean(p?.extended_from);
+  updateExtendHint();
   form.elements.note.value = p ? p.note : "";
   $("#delete-btn").hidden = !state.editingId;
   $("#product-dialog").showModal();
@@ -445,11 +509,14 @@ async function saveProduct(event) {
       hideNewLocationRow();
     }
   }
+  const date = form.elements.expires_on.value || null;
+  const extend = Boolean(date) && form.elements.extend.checked;
   const row = {
     name: form.elements.name.value.trim(),
     location_id: select.value || null,
     quantity: form.elements.quantity.value.trim(),
-    expires_on: form.elements.expires_on.value || null,
+    expires_on: extend ? addMonths(date, EXTEND_MONTHS) : date,
+    extended_from: extend ? date : null,
     note: form.elements.note.value.trim(),
   };
   if (!row.name) return;
@@ -494,11 +561,12 @@ async function deleteProductBySwipe(p) {
 }
 
 async function restoreProduct(p) {
-  const { id, household_id, name, location_id, quantity, expires_on, note, created_at } = p;
+  const { id, household_id, name, location_id, quantity, expires_on, extended_from, note, created_at } = p;
   // If its category was deleted meanwhile, bring it back without one.
   const stillThere = state.locations.some((l) => l.id === location_id);
   const { error } = await db.from("products").insert({
-    id, household_id, name, location_id: stillThere ? location_id : null, quantity, expires_on, note, created_at,
+    id, household_id, name, location_id: stillThere ? location_id : null,
+    quantity, expires_on, extended_from, note, created_at,
   });
   if (error) toast(`Errore nel ripristino: ${error.message}`);
   loadData();
@@ -892,6 +960,8 @@ function wireUp() {
   });
   $("#add-btn").addEventListener("click", () => openProduct(null));
   $("#product-form").addEventListener("submit", saveProduct);
+  $("#product-form").elements.expires_on.addEventListener("input", updateExtendHint);
+  $("#product-form").elements.extend.addEventListener("change", updateExtendHint);
   $("#cancel-btn").addEventListener("click", () => $("#product-dialog").close());
   $("#delete-btn").addEventListener("click", deleteProduct);
 

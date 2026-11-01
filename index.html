@@ -84,6 +84,12 @@
       <label>Scadenza
         <input name="expires_on" type="date">
       </label>
+      <!-- Same as the "+5m" checkbox in the list: the date above stays the original one -->
+      <label class="check-row">
+        <input name="extend" type="checkbox">
+        <span>+5 mesi alla scadenza</span>
+      </label>
+      <p id="extend-hint" class="hint" hidden></p>
       <label>Nota
         <input name="note" maxlength="80" placeholder="es. il prima possibile" autocomplete="off">
       </label>

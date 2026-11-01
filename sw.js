@@ -1,5 +1,5 @@
 // Bump the version whenever the app files change so phones pick up the update.
-const CACHE = "grocery-tracker-v4";
+const CACHE = "grocery-tracker-v6";
 const APP_SHELL = [
   "./",
   "./index.html",

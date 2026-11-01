@@ -92,6 +92,12 @@ label { display: grid; gap: 0.3rem; font-weight: 600; font-size: 0.9rem; }
 .row { display: flex; gap: 0.5rem; }
 .row input { flex: 1; min-width: 0; }
 .msg.error { color: var(--danger); margin: 0; font-size: 0.9rem; }
+
+/* Checkbox + text on one line inside forms ("+5 mesi alla scadenza") */
+label.check-row { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; cursor: pointer; }
+label.check-row input { width: 22px; height: 22px; margin: 0; padding: 0; flex: none; accent-color: var(--accent); }
+label.check-row:has(input:disabled) { opacity: 0.45; cursor: default; }
+.hint { margin: -0.5rem 0 0; color: var(--muted); font-size: 0.85rem; }
 button.small { padding: 0.4rem 0.7rem; font-size: 0.85rem; }
 
 /* Categories dialog */
@@ -149,28 +155,63 @@ code { font-size: 1.05rem; font-weight: 600; user-select: all; }
 
 .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
 
+/* Card = checkbox + tappable button; it carries the colors and slides when swiping. */
+.item-card {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
 .item-btn {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 0.8rem;
   text-align: left;
   font-weight: normal;
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.75rem 0.9rem;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 0.75rem 0.9rem 0.75rem 0.2rem;
 }
+
+/* "+5m" checkbox on the left of each item */
+.item-check {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0 0.55rem 0 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.item-check input {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+  cursor: inherit;
+}
+.item-check-text { font-size: 0.68rem; opacity: 0.75; line-height: 1; }
+.item-check:has(input:disabled) { opacity: 0.35; cursor: default; }
 /* Holding an item opens our action menu, not iOS text selection / link preview. */
 .item-btn {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
   touch-action: pan-y; /* vertical scroll stays native, horizontal drags go to the swipe */
-  transition: transform 0.15s ease, filter 0.15s ease;
-  position: relative;
 }
 
 /* Swipe left to delete: the item slides over a red strip with "Elimina" on the right. */
@@ -192,7 +233,7 @@ code { font-size: 1.05rem; font-weight: 600; user-select: all; }
 .item.is-armed .item-swipe-bg { background: #e53935; }
 .item-swipe-label { transition: transform 0.15s ease; }
 .item.is-armed .item-swipe-label { transform: scale(1.15); }
-.item-btn.is-held { transform: scale(0.98); filter: brightness(1.12); }
+.item-card.is-held { transform: scale(0.98); filter: brightness(1.12); }
 
 .item-menu {
   position: fixed;
@@ -229,9 +270,9 @@ code { font-size: 1.05rem; font-weight: 600; user-select: all; }
 .item-meta, .item-rel, .item-note { font-size: 0.85rem; opacity: 0.8; }
 .item-date { font-weight: 600; font-variant-numeric: tabular-nums; }
 
-.status-expired .item-btn { background: var(--expired-bg); color: var(--expired-text); border-color: transparent; }
-.status-soon .item-btn { background: var(--soon-bg); color: var(--soon-text); border-color: transparent; }
-.status-warn .item-btn { background: var(--warn-bg); color: var(--warn-text); border-color: transparent; }
+.status-expired .item-card { background: var(--expired-bg); color: var(--expired-text); border-color: transparent; }
+.status-soon .item-card { background: var(--soon-bg); color: var(--soon-text); border-color: transparent; }
+.status-warn .item-card { background: var(--warn-bg); color: var(--warn-text); border-color: transparent; }
 
 .empty { text-align: center; color: var(--muted); padding: 2rem 0; }
 

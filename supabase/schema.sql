@@ -136,6 +136,8 @@ create table public.products (
   location_id uuid references public.locations (id) on delete set null,
   quantity text not null default '',
   expires_on date,
+  -- Original expiry when the "+5m" checkbox is ticked (expires_on is then 5 months later).
+  extended_from date,
   note text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),

@@ -87,6 +87,8 @@ that you haven't run yet, in order, in **SQL Editor** — before pushing the app
 
 - `002_custom_locations.sql` – categories are created by each group instead of the fixed
   Frigo / Freezer / Sopra il freezer / Dispensa. Existing groups keep the ones they already use.
+- `003_extend_expiry.sql` – the "+5m" checkbox on each product (moves the expiry 5 months later;
+  unticking restores the original date).
 
 ## Trying it on the PC
 
