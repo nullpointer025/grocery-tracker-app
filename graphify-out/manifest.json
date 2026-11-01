@@ -1,7 +1,7 @@
 {
   "app.js": {
-    "mtime": 1793524982.9515033,
-    "ast_hash": "4de8b3823ca61e3bd16a015105d8ef1e",
+    "mtime": 1793547425.4495702,
+    "ast_hash": "afaf8e8e02a8ef0af8d59a0721fcd0fd",
     "semantic_hash": ""
   },
   "config.js": {
@@ -20,23 +20,23 @@
     "semantic_hash": ""
   },
   "supabase/schema.sql": {
-    "mtime": 1793523341.9343438,
-    "ast_hash": "c9ad4e0afb0fdb0b71353c8ffa18c007",
+    "mtime": 1793546630.3601663,
+    "ast_hash": "6b68951a6f35a88b6fca5227eac08b0a",
     "semantic_hash": ""
   },
   "sw.js": {
-    "mtime": 1793524756.3477714,
-    "ast_hash": "169bbd0f2b05fd91311d0542dbfb239c",
+    "mtime": 1793547425.724819,
+    "ast_hash": "1635aa049b47d6aef53a95a12cc6d9e2",
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1793523426.3431273,
-    "ast_hash": "9369a09e5e3a1bdf05fd6f3085f6a0e9",
+    "mtime": 1793546636.0012538,
+    "ast_hash": "cdf31946c00c5cc2d4a56af4c6392d0b",
     "semantic_hash": ""
   },
   "index.html": {
-    "mtime": 1793523351.483284,
-    "ast_hash": "9cfd73485dab102be492839c7f8d06f0",
+    "mtime": 1793547405.6781063,
+    "ast_hash": "5a260066adc92ebaa784ee0299275571",
     "semantic_hash": ""
   },
   "icons/apple-touch-icon.png": {
@@ -55,8 +55,13 @@
     "semantic_hash": ""
   },
   "supabase/migrations/002_custom_locations.sql": {
-    "mtime": 1793523331.2169604,
-    "ast_hash": "d73d90e715eb8a3e7ba25edd19361f4e",
+    "mtime": 1793525778.5000732,
+    "ast_hash": "73066b769440b2978b6cf559df65b147",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/003_extend_expiry.sql": {
+    "mtime": 1793546626.975963,
+    "ast_hash": "b6c445374948ab4dd70d7d68e1e2aa00",
     "semantic_hash": ""
   }
 }
