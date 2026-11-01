@@ -139,6 +139,8 @@ create table public.products (
   -- Original expiry when the "+5m" checkbox is ticked (expires_on is then 5 months later).
   extended_from date,
   note text not null default '',
+  -- stock = at home, shopping = in "Lista spesa", new = bought, waiting for details in "Nuovi".
+  stage text not null default 'stock' check (stage in ('stock', 'shopping', 'new')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   updated_by uuid default auth.uid()

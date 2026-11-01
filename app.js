@@ -6,6 +6,11 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const CURRENT_HOUSEHOLD_KEY = "grocery.currentHousehold";
 const NO_LOCATION = "none"; // filter value for products without a category
 const NEW_LOCATION = "__new__"; // select value that opens the "new category" field
+// Fixed tabs next to "Tutti". A product's stage says where it is:
+// "stock" = at home (normal list), "shopping" = in Lista spesa, "new" = bought, waiting for its details.
+const TAB_NEW = "__tab_new";
+const TAB_SHOPPING = "__tab_shopping";
+const stageOf = (p) => p.stage || "stock";
 
 const $ = (sel) => document.querySelector(sel);
 const state = {
@@ -71,6 +76,17 @@ const STRINGS = {
     categoriesIntro: "Crea i posti dove tieni i prodotti, es. Frigo, Freezer, Dispensa.",
     noCategories: "Nessuna categoria.",
     newCategory: "Nuova categoria",
+    tabNew: "Nuovi",
+    tabShopping: "Lista spesa",
+    toBuy: "Da comprare",
+    shoppingPh: "Aggiungi alla lista spesa…",
+    emptyShopping: "La lista spesa è vuota. Tieni premuto un prodotto e scegli \"Da comprare\".",
+    emptyNew: "Nessun prodotto nuovo. Spunta i prodotti nella lista spesa e completali qui.",
+    titleComplete: "Completa prodotto",
+    boughtAria: (name) => `${name}: comprato`,
+    movedToNew: (name) => `"${name}" spostato in Nuovi`,
+    addedToShopping: (name) => `"${name}" aggiunto alla lista spesa`,
+    alreadyInShopping: (name) => `"${name}" è già nella lista spesa`,
 
     relExpiredDays: (n) => `scaduto da ${n} giorni`,
     relYesterday: "scaduto ieri",
@@ -159,6 +175,17 @@ const STRINGS = {
     categoriesIntro: "Create the places where you keep your products, e.g. Fridge, Freezer, Pantry.",
     noCategories: "No categories.",
     newCategory: "New category",
+    tabNew: "New",
+    tabShopping: "Shopping list",
+    toBuy: "To buy",
+    shoppingPh: "Add to the shopping list…",
+    emptyShopping: "The shopping list is empty. Hold a product and choose \"To buy\".",
+    emptyNew: "No new products. Tick products in the shopping list and complete them here.",
+    titleComplete: "Complete product",
+    boughtAria: (name) => `${name}: bought`,
+    movedToNew: (name) => `"${name}" moved to New`,
+    addedToShopping: (name) => `"${name}" added to the shopping list`,
+    alreadyInShopping: (name) => `"${name}" is already in the shopping list`,
 
     relExpiredDays: (n) => `expired ${n} days ago`,
     relYesterday: "expired yesterday",
@@ -311,6 +338,10 @@ function locationOf(p) {
 }
 
 function matchesFilter(p, filter) {
+  if (filter === TAB_SHOPPING) return stageOf(p) === "shopping";
+  if (filter === TAB_NEW) return stageOf(p) === "new";
+  // "Tutti" and the categories only show what is at home.
+  if (stageOf(p) !== "stock") return false;
   if (filter === "all") return true;
   if (filter === NO_LOCATION) return !locationOf(p);
   return p.location_id === filter;
@@ -318,21 +349,119 @@ function matchesFilter(p, filter) {
 
 function render() {
   // The selected category may have been deleted (here or on another phone).
-  const filterExists = state.filter === "all" || state.filter === NO_LOCATION
+  const filterExists = ["all", NO_LOCATION, TAB_NEW, TAB_SHOPPING].includes(state.filter)
     || state.locations.some((l) => l.id === state.filter);
   if (!filterExists) state.filter = "all";
 
+  const shopping = state.filter === TAB_SHOPPING;
   const query = state.search.trim().toLowerCase();
   const visible = state.products
     .filter((p) => matchesFilter(p, state.filter))
     .filter((p) => !query || p.name.toLowerCase().includes(query))
-    .sort(compareProducts);
+    .sort(shopping ? compareByName : compareProducts);
 
   $("#app-title").textContent = state.household ? state.household.name : "Grocery Tracker";
-  $("#list").replaceChildren(...visible.map(renderItem));
+  $("#list").replaceChildren(...visible.map(shopping ? renderShoppingItem : renderItem));
   $("#empty").hidden = visible.length > 0;
+  $("#empty").textContent = t(shopping ? "emptyShopping" : state.filter === TAB_NEW ? "emptyNew" : "noProducts");
+  // Lista spesa has its own quick "add" field instead of the + button.
+  $("#shopping-form").hidden = !shopping;
+  $("#add-btn").hidden = shopping;
   renderFilters();
   renderSummary();
+}
+
+function compareByName(a, b) {
+  return a.name.localeCompare(b.name, lang);
+}
+
+// Lista spesa row: checkbox + name. Ticking it (or tapping the row) moves it to "Nuovi".
+function renderShoppingItem(p) {
+  const li = el("li", "item item-shopping");
+  const btn = el("button", "item-btn");
+  btn.type = "button";
+  attachGestures(btn, {
+    onTap: () => markBought(p),
+    onLongPress: () => openItemMenu(p, btn.closest(".item-card") || btn),
+    onSwipeDelete: () => deleteProductBySwipe(p),
+  });
+  btn.append(el("span", "item-name", p.name));
+
+  const check = el("label", "item-check");
+  const box = el("input");
+  box.type = "checkbox";
+  box.setAttribute("aria-label", t("boughtAria", p.name));
+  box.addEventListener("change", () => markBought(p));
+  check.append(box);
+
+  const swipeBg = el("span", "item-swipe-bg");
+  swipeBg.setAttribute("aria-hidden", "true");
+  swipeBg.append(el("span", "item-swipe-label", t("delete")));
+
+  const card = el("div", "item-card");
+  card.append(check, btn);
+  li.append(swipeBg, card);
+  return li;
+}
+
+async function setStage(p, stage) {
+  const before = p.stage;
+  p.stage = stage;
+  render();
+  const { error } = await db.from("products").update({ stage }).eq("id", p.id);
+  if (error) {
+    p.stage = before;
+    render();
+    toast(t("error", error.message));
+    return false;
+  }
+  return true;
+}
+
+async function markBought(p) {
+  if (await setStage(p, "new")) {
+    toast(t("movedToNew", p.name), { label: t("undo"), run: () => setStage(p, "shopping") });
+  }
+}
+
+// "Da comprare": a new row in Lista spesa with the same name (and category, used once it's bought).
+// The product at home stays where it is.
+async function addToShopping(p) {
+  const name = p.name.trim();
+  const already = state.products.some(
+    (x) => stageOf(x) === "shopping" && x.name.trim().toLowerCase() === name.toLowerCase(),
+  );
+  if (already) {
+    toast(t("alreadyInShopping", name));
+    return;
+  }
+  const { error } = await db.from("products").insert({
+    household_id: state.household.id,
+    name,
+    location_id: p.location_id || null,
+    stage: "shopping",
+  });
+  if (error) {
+    toast(t("error", error.message));
+    return;
+  }
+  toast(t("addedToShopping", name));
+  loadData();
+}
+
+async function addShoppingFromForm(event) {
+  event.preventDefault();
+  const input = event.target.elements.name;
+  const name = input.value.trim();
+  if (!name) return;
+  const { error } = await db.from("products").insert({ household_id: state.household.id, name, stage: "shopping" });
+  if (error) {
+    toast(t("error", error.message));
+    return;
+  }
+  input.value = "";
+  input.focus();
+  loadData();
 }
 
 function renderItem(p) {
@@ -547,13 +676,25 @@ function attachGestures(node, { onTap, onLongPress, onSwipeDelete }) {
 }
 
 // Actions shown when holding an item. Add new entries here.
+// `when` decides which products get the action.
 const ITEM_ACTIONS = [
-  { label: () => t("duplicate"), run: (p) => openProduct(p, { duplicate: true }) },
+  {
+    label: () => t("duplicate"),
+    when: (p) => stageOf(p) !== "shopping",
+    run: (p) => openProduct(p, { duplicate: true }),
+  },
+  {
+    label: () => t("toBuy"),
+    when: (p) => stageOf(p) !== "shopping",
+    run: (p) => addToShopping(p),
+  },
 ];
 
 function openItemMenu(p, anchor) {
+  const actions = ITEM_ACTIONS.filter((action) => action.when(p));
+  if (!actions.length) return;
   const menu = $("#item-menu");
-  menu.replaceChildren(...ITEM_ACTIONS.map((action) => {
+  menu.replaceChildren(...actions.map((action) => {
     const btn = el("button", "item-menu-btn", action.label());
     btn.type = "button";
     btn.setAttribute("role", "menuitem");
@@ -590,6 +731,8 @@ function renderFilters() {
   const count = (id) => state.products.filter((p) => matchesFilter(p, id)).length;
   const options = [
     { id: "all", label: t("all") },
+    { id: TAB_NEW, label: t("tabNew") },
+    { id: TAB_SHOPPING, label: t("tabShopping") },
     ...state.locations.map((l) => ({ id: l.id, label: l.name })),
   ];
   // Only show "Senza categoria" when something is actually in it.
@@ -614,7 +757,8 @@ function renderFilters() {
 }
 
 function renderSummary() {
-  const count = (status) => state.products.filter((p) => expiryStatus(p) === status).length;
+  const count = (status) => state.products
+    .filter((p) => stageOf(p) === "stock" && expiryStatus(p) === status).length;
   const parts = [];
   const expired = count("expired");
   const soon = count("soon");
@@ -622,7 +766,8 @@ function renderSummary() {
   if (expired) parts.push(t("summaryExpired", expired));
   if (soon) parts.push(t("summarySoon", soon));
   if (warn) parts.push(t("summaryWarn", warn));
-  $("#summary").textContent = parts.join(" · ");
+  const fixedTab = state.filter === TAB_NEW || state.filter === TAB_SHOPPING;
+  $("#summary").textContent = fixedTab ? "" : parts.join(" · ");
 }
 
 let toastTimer;
@@ -712,7 +857,8 @@ function unsubscribeFromChanges() {
 function openProduct(p, { duplicate = false } = {}) {
   const form = $("#product-form");
   state.editingId = p && !duplicate ? p.id : null;
-  $("#product-title").textContent = t(duplicate ? "titleDuplicate" : p ? "titleEdit" : "titleNew");
+  const completing = p && !duplicate && stageOf(p) === "new";
+  $("#product-title").textContent = t(duplicate ? "titleDuplicate" : completing ? "titleComplete" : p ? "titleEdit" : "titleNew");
   form.elements.name.value = p ? p.name : "";
   // New products go into the category being viewed, else the first one.
   const fallback = state.locations.some((l) => l.id === state.filter)
@@ -754,6 +900,7 @@ async function saveProduct(event) {
     expires_on: extend ? addMonths(date, EXTEND_MONTHS) : date,
     extended_from: extend ? date : null,
     note: form.elements.note.value.trim(),
+    stage: "stock", // saving the form puts it at home (this is how "Nuovi" items get filed)
   };
   if (!row.name) return;
 
@@ -798,11 +945,12 @@ async function deleteProductBySwipe(p) {
 
 async function restoreProduct(p) {
   const { id, household_id, name, location_id, quantity, expires_on, extended_from, note, created_at } = p;
+  const stage = stageOf(p);
   // If its category was deleted meanwhile, bring it back without one.
   const stillThere = state.locations.some((l) => l.id === location_id);
   const { error } = await db.from("products").insert({
     id, household_id, name, location_id: stillThere ? location_id : null,
-    quantity, expires_on, extended_from, note, created_at,
+    quantity, expires_on, extended_from, note, created_at, stage,
   });
   if (error) toast(t("restoreError", error.message));
   loadData();
@@ -1140,6 +1288,7 @@ function wireUp() {
     render();
   });
   $("#add-btn").addEventListener("click", () => openProduct(null));
+  $("#shopping-form").addEventListener("submit", addShoppingFromForm);
   $("#product-form").addEventListener("submit", saveProduct);
   $("#product-form").elements.expires_on.addEventListener("input", updateExtendHint);
   $("#product-form").elements.extend.addEventListener("change", updateExtendHint);

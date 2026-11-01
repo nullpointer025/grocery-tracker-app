@@ -89,6 +89,8 @@ that you haven't run yet, in order, in **SQL Editor** — before pushing the app
   Frigo / Freezer / Sopra il freezer / Dispensa. Existing groups keep the ones they already use.
 - `003_extend_expiry.sql` – the "+5m" checkbox on each product (moves the expiry 5 months later;
   unticking restores the original date).
+- `004_shopping_list.sql` – the "Lista spesa" and "Nuovi" tabs (adds a `stage` to each product;
+  existing products stay in the normal list).
 
 ## Trying it on the PC
 

@@ -10,7 +10,8 @@
   <meta name="apple-mobile-web-app-title" content="Grocery">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="stylesheet" href="styles.css">
   <title>Grocery Tracker</title>
 </head>
@@ -58,6 +59,11 @@
     <div class="toolbar">
       <input id="search" type="search" placeholder="Cerca prodotto…" data-i18n-ph="searchPh" autocomplete="off">
       <div id="filters" class="chips"></div>
+      <!-- Only on the "Lista spesa" tab -->
+      <form id="shopping-form" class="row" hidden>
+        <input name="name" maxlength="80" placeholder="Aggiungi alla lista spesa…" data-i18n-ph="shoppingPh" autocomplete="off" required aria-label="Aggiungi alla lista spesa" data-i18n-aria="shoppingPh">
+        <button type="submit" data-i18n="add">Aggiungi</button>
+      </form>
     </div>
     <p id="summary" class="summary"></p>
     <ul id="list" class="list"></ul>

@@ -213,7 +213,8 @@ code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-si
   padding: 0.85rem 0.2rem 0.85rem 0.2rem;
 }
 .item-btn:active { opacity: 1; }
-.item-card:has(.item-btn:active) { background: var(--hover); }
+/* The tint is layered on the solid page color so the red swipe strip never shows through the item. */
+.item-card:has(.item-btn:active) { background: linear-gradient(var(--hover), var(--hover)), var(--bg); }
 
 /* "+5m" checkbox on the left of each item */
 .item-check {
@@ -265,7 +266,7 @@ code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-si
 .item.is-armed .item-swipe-bg { filter: brightness(1.1); }
 .item-swipe-label { transition: transform 0.15s ease; }
 .item.is-armed .item-swipe-label { transform: scale(1.12); }
-.item-card.is-held { background: var(--hover); }
+.item-card.is-held { background: linear-gradient(var(--hover), var(--hover)), var(--bg); }
 
 .item-menu {
   position: fixed;
@@ -358,3 +359,6 @@ dialog::backdrop { background: rgb(0 0 0 / 0.3); -webkit-backdrop-filter: blur(3
   padding: 0.2rem 0.4rem;
   font-size: 0.88rem;
 }
+
+/* Lista spesa rows: just checkbox + name */
+.item-shopping .item-btn { padding-top: 0.75rem; padding-bottom: 0.75rem; }
