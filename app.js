@@ -71,6 +71,8 @@ const STRINGS = {
     categories: "Categorie",
     manageCategories: "Gestisci categorie",
     language: "Lingua",
+    appearance: "Aspetto",
+    darkMode: "Modalità scura",
     leaveGroup: "Esci dal gruppo",
     close: "Chiudi",
     categoriesIntro: "Crea i posti dove tieni i prodotti, es. Frigo, Freezer, Dispensa.",
@@ -170,6 +172,8 @@ const STRINGS = {
     categories: "Categories",
     manageCategories: "Manage categories",
     language: "Language",
+    appearance: "Appearance",
+    darkMode: "Dark mode",
     leaveGroup: "Leave group",
     close: "Close",
     categoriesIntro: "Create the places where you keep your products, e.g. Fridge, Freezer, Pantry.",
@@ -280,6 +284,48 @@ function setLanguage(next) {
   applyStaticTexts();
   render();
   if ($("#locations-dialog").open) renderLocations();
+}
+
+// ---------- theme (light / dark) ----------
+
+// No saved choice = follow the system. index.html applies the saved one before the first paint.
+const THEME_KEY = "grocery.theme";
+const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+const THEME_COLORS = { light: "#fafafa", dark: "#0d0d0d" };
+
+function savedTheme() {
+  try {
+    const theme = localStorage.getItem(THEME_KEY);
+    return theme === "dark" || theme === "light" ? theme : null;
+  } catch {
+    return null;
+  }
+}
+
+function currentTheme() {
+  return savedTheme() ?? (darkQuery.matches ? "dark" : "light");
+}
+
+function applyTheme() {
+  const saved = savedTheme();
+  if (saved) document.documentElement.dataset.theme = saved;
+  else delete document.documentElement.dataset.theme;
+  // Status bar color: with a forced theme both <meta> tags must show it, whatever the system says.
+  for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+    const media = meta.media.includes("dark") ? "dark" : "light";
+    meta.content = THEME_COLORS[saved ?? media];
+  }
+  $("#theme-toggle").checked = currentTheme() === "dark";
+}
+
+function setTheme(theme) {
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch {
+    // Private mode: just apply it for this session.
+    document.documentElement.dataset.theme = theme;
+  }
+  applyTheme();
 }
 
 // ---------- dates & expiry status ----------
@@ -1218,6 +1264,7 @@ function openSettings() {
   $("#household-name").value = name;
   $("#household-code").textContent = code;
   $("#language-select").value = lang;
+  $("#theme-toggle").checked = currentTheme() === "dark";
   showMsg("#household-msg", "");
   fillHouseholdSelect();
   $("#settings-dialog").showModal();
@@ -1312,6 +1359,9 @@ function wireUp() {
     if (e.key === "Enter") e.target.blur();
   });
   $("#language-select").addEventListener("change", (e) => setLanguage(e.target.value));
+  $("#theme-toggle").addEventListener("change", (e) => setTheme(e.target.checked ? "dark" : "light"));
+  darkQuery.addEventListener("change", applyTheme); // only matters while no theme is saved
+  applyTheme();
 
   // Close the item menu on any tap outside it, on scroll, resize or Escape.
   document.addEventListener("pointerdown", (e) => {
