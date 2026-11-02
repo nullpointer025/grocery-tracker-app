@@ -12,6 +12,8 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <!-- Apply the saved theme before the first paint so the page doesn't flash the other one -->
+  <script>try{var t=localStorage.getItem("grocery.theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t;}catch(e){}</script>
   <link rel="stylesheet" href="styles.css">
   <title>Grocery Tracker</title>
 </head>
@@ -135,6 +137,10 @@
         <option value="it">Italiano</option>
         <option value="en">English</option>
       </select>
+      <h3 data-i18n="appearance">Aspetto</h3>
+      <label class="switch-row"><span data-i18n="darkMode">Modalità scura</span>
+        <input id="theme-toggle" type="checkbox" role="switch">
+      </label>
       <div class="actions">
         <button type="button" id="leave-btn" class="danger" data-i18n="leaveGroup">Esci dal gruppo</button>
         <span class="spacer"></span>
