@@ -184,6 +184,7 @@ create table public.push_subscriptions (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   p256dh text not null,
   auth text not null,
+  lang text not null default 'it' check (lang in ('it', 'en')), -- language of the notification text
   created_at timestamptz not null default now()
 );
 alter table public.push_subscriptions enable row level security;

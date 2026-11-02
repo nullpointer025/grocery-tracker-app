@@ -12,7 +12,7 @@ by expiry date, with the same colors:
 
 Products without a date (or with only a note such as "il prima possibile") go at the bottom.
 Changes show up live on every phone, and each phone can get a notification every morning for
-products that expire within 3 days.
+products that expire within 7 days (turn it on in ⚙︎ → *Notifiche*).
 
 **No accounts or passwords.** The first time the app opens, it gets an anonymous Supabase
 login that stays on that phone. Then you either:

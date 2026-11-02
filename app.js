@@ -1,6 +1,6 @@
 "use strict";
 
-const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.APP_CONFIG;
+const { SUPABASE_URL, SUPABASE_ANON_KEY, VAPID_PUBLIC_KEY = "" } = window.APP_CONFIG;
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CURRENT_HOUSEHOLD_KEY = "grocery.currentHousehold";
@@ -73,6 +73,17 @@ const STRINGS = {
     language: "Lingua",
     appearance: "Aspetto",
     darkMode: "Modalità scura",
+    notifications: "Notifiche",
+    notifyToggle: "Avvisi scadenze",
+    pushInfo: "Ogni mattina un avviso con i prodotti che scadono entro 7 giorni.",
+    pushOn: "Attive su questo dispositivo: ogni mattina un avviso con i prodotti che scadono entro 7 giorni.",
+    pushIOS: "Su iPhone le notifiche funzionano solo dall'app sulla schermata Home: in Safari tocca Condividi → Aggiungi alla schermata Home, poi apri l'app da lì.",
+    pushUnsupported: "Questo browser non supporta le notifiche.",
+    pushNotConfigured: "Notifiche non ancora configurate (VAPID_PUBLIC_KEY in config.js).",
+    pushDenied: "Notifiche bloccate. Riattivale nelle impostazioni del telefono per questa app.",
+    pushEnabled: "Notifiche attivate",
+    pushDisabled: "Notifiche disattivate",
+    pushError: (msg) => `Errore notifiche: ${msg}`,
     leaveGroup: "Esci dal gruppo",
     close: "Chiudi",
     categoriesIntro: "Crea i posti dove tieni i prodotti, es. Frigo, Freezer, Dispensa.",
@@ -174,6 +185,17 @@ const STRINGS = {
     language: "Language",
     appearance: "Appearance",
     darkMode: "Dark mode",
+    notifications: "Notifications",
+    notifyToggle: "Expiry alerts",
+    pushInfo: "Every morning, an alert listing the products that expire within 7 days.",
+    pushOn: "On for this device: every morning, an alert listing the products that expire within 7 days.",
+    pushIOS: "On iPhone, notifications only work from the Home Screen app: in Safari tap Share → Add to Home Screen, then open the app from there.",
+    pushUnsupported: "This browser doesn't support notifications.",
+    pushNotConfigured: "Notifications aren't set up yet (VAPID_PUBLIC_KEY in config.js).",
+    pushDenied: "Notifications are blocked. Turn them back on in the phone's settings for this app.",
+    pushEnabled: "Notifications on",
+    pushDisabled: "Notifications off",
+    pushError: (msg) => `Notification error: ${msg}`,
     leaveGroup: "Leave group",
     close: "Close",
     categoriesIntro: "Create the places where you keep your products, e.g. Fridge, Freezer, Pantry.",
@@ -284,6 +306,8 @@ function setLanguage(next) {
   applyStaticTexts();
   render();
   if ($("#locations-dialog").open) renderLocations();
+  if ($("#settings-dialog").open) updatePushUI();
+  savePushLanguage();
 }
 
 // ---------- theme (light / dark) ----------
@@ -1257,6 +1281,97 @@ async function leaveHousehold() {
   await openHousehold(null);
 }
 
+// ---------- push notifications ----------
+// The daily job (supabase/functions/notify-expiring) sends to every phone saved in push_subscriptions.
+
+const pushSupported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+
+function urlBase64ToUint8Array(base64) {
+  const padded = (base64 + "=".repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+}
+
+async function currentSubscription() {
+  const reg = await navigator.serviceWorker.ready;
+  return reg.pushManager.getSubscription();
+}
+
+// The daily notification is written in the app's language, so keep the saved one in step.
+async function savePushLanguage() {
+  if (!pushSupported) return;
+  try {
+    const sub = await currentSubscription();
+    if (!sub) return;
+    const { error } = await db.from("push_subscriptions").update({ lang }).eq("endpoint", sub.endpoint);
+    if (error) throw error;
+  } catch (err) {
+    console.warn("Could not save the notification language", err);
+  }
+}
+
+async function updatePushUI() {
+  const status = $("#push-status");
+  const row = $("#push-row");
+  const toggle = $("#push-toggle");
+  row.hidden = true;
+
+  if (!pushSupported) {
+    status.textContent = isIOS && !isStandalone ? t("pushIOS") : t("pushUnsupported");
+    return;
+  }
+  if (!VAPID_PUBLIC_KEY || VAPID_PUBLIC_KEY.startsWith("YOUR-")) {
+    status.textContent = t("pushNotConfigured");
+    return;
+  }
+  if (Notification.permission === "denied") {
+    status.textContent = t("pushDenied");
+    return;
+  }
+
+  const sub = await currentSubscription();
+  toggle.checked = Boolean(sub);
+  status.textContent = sub ? t("pushOn") : t("pushInfo");
+  row.hidden = false;
+}
+
+async function togglePush() {
+  const toggle = $("#push-toggle");
+  toggle.disabled = true;
+  try {
+    const existing = await currentSubscription();
+    if (existing) {
+      await db.from("push_subscriptions").delete().eq("endpoint", existing.endpoint);
+      await existing.unsubscribe();
+      toast(t("pushDisabled"));
+    } else {
+      // iOS requires the permission prompt to come straight from the tap.
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return;
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      const { keys } = sub.toJSON();
+      const { error } = await db
+        .from("push_subscriptions")
+        .upsert({ endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth, lang }, { onConflict: "endpoint" });
+      if (error) {
+        await sub.unsubscribe();
+        throw error;
+      }
+      toast(t("pushEnabled"));
+    }
+  } catch (err) {
+    toast(t("pushError", err.message));
+  } finally {
+    toggle.disabled = false;
+    updatePushUI();
+  }
+}
+
 // ---------- settings ----------
 
 function openSettings() {
@@ -1267,6 +1382,7 @@ function openSettings() {
   $("#theme-toggle").checked = currentTheme() === "dark";
   showMsg("#household-msg", "");
   fillHouseholdSelect();
+  updatePushUI();
   $("#settings-dialog").showModal();
 }
 
@@ -1360,6 +1476,7 @@ function wireUp() {
   });
   $("#language-select").addEventListener("change", (e) => setLanguage(e.target.value));
   $("#theme-toggle").addEventListener("change", (e) => setTheme(e.target.checked ? "dark" : "light"));
+  $("#push-toggle").addEventListener("change", togglePush);
   darkQuery.addEventListener("change", applyTheme); // only matters while no theme is saved
   applyTheme();
 
