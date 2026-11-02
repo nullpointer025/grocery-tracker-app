@@ -7,5 +7,5 @@ window.APP_CONFIG = {
   // Supabase → Project Settings → API Keys → publishable key
   SUPABASE_ANON_KEY: "sb_publishable_mYM5lEkjajWtJA6keLldRg_sGo-5ULU",
   // Public key from `npx web-push generate-vapid-keys`
-  VAPID_PUBLIC_KEY: "YOUR-VAPID-PUBLIC-KEY",
+  VAPID_PUBLIC_KEY: "BK8K7-iktihFR0kDvXhnxHeDPZHFy9iz1-A9CAtIOaPq5uyk6yW-plAdM1DkmCnMPKUpz4wXJNo4PcRqdC0I9yQ",
 };
