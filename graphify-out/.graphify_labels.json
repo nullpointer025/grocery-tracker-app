@@ -1,15 +1,15 @@
 {
-  "0": "wireUp",
+  "0": "openHousehold",
   "1": "Setup",
-  "2": "openProduct",
+  "2": "wireUp",
   "3": "t",
   "4": "index.ts",
   "5": "app.js",
-  "6": "render",
+  "6": "renderLocations",
   "7": "afterJoin",
   "8": "renderItem",
   "9": "sw.js",
   "10": "config.js",
-  "11": "setLanguage",
+  "11": "applyTheme",
   "12": "scheduleReload"
 }
